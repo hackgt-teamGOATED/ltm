@@ -3,6 +3,7 @@ import type { Server } from 'socket.io';
 import { supabase } from './supabase.js';
 import { env } from './env.js';
 import { synthesize, transcribe, translate } from './ai.js';
+import { analyzeForViewers } from './learning/analyze.js';
 
 // ---------- types ----------
 
@@ -108,6 +109,8 @@ async function resolveThread(threadId: string, senderId: string) {
 async function finish(io: Server, row: MessageRow, status: 'ready' | 'failed') {
   await supabase.from('messages').update({ status }).eq('id', row.id);
   io.to(room(row.thread_id)).emit('message:updated', await loadMessage(row.id));
+  // Learning layer: annotate for members learning this language. Never blocks text or audio.
+  if (status === 'ready') void analyzeForViewers(io, row.id);
 }
 
 // ---------- reads ----------

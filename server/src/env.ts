@@ -37,6 +37,8 @@ export const env = {
   OPENAI_CHAT_MODEL: process.env.OPENAI_CHAT_MODEL ?? 'gpt-4o-mini',
   // whisper-1 returns word-level timestamps (needed for karaoke highlighting later).
   OPENAI_STT_MODEL: process.env.OPENAI_STT_MODEL ?? 'whisper-1',
+  // Structured word-by-word analysis for the learning layer (PLAN.md §6.2).
+  OPENAI_ANALYZE_MODEL: process.env.OPENAI_ANALYZE_MODEL ?? 'gpt-4o-mini',
   OPENAI_TTS_MODEL: process.env.OPENAI_TTS_MODEL ?? 'gpt-4o-mini-tts',
   OPENAI_TTS_VOICE: process.env.OPENAI_TTS_VOICE ?? 'alloy',
   AUDIO_BUCKET: process.env.AUDIO_BUCKET ?? 'audio',
