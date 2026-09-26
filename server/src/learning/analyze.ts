@@ -2,14 +2,9 @@
 import type { Server } from 'socket.io';
 import { analyzeMessage, type WordTiming } from '../ai.js';
 import { env } from '../env.js';
-import { supabase } from '../supabase.js';
+import { must, supabase } from '../supabase.js';
 import { AnalysisInvalid, alignAnalysis, attachTimings } from './align.js';
 import type { Lang, MessageAnalysis, Phrase, Token } from './types.js';
-
-export function must<T>(res: { data: unknown; error: { message: string } | null }): T {
-  if (res.error) throw new Error(res.error.message);
-  return res.data as T;
-}
 
 type AnalysisRow = {
   message_id: string;
@@ -63,12 +58,14 @@ async function analyzeOne(io: Server, msg: MsgRow, viewerLang: string): Promise<
   const running = inFlight.get(key);
   if (running) return running;
   const job = (async () => {
+    // A stored failure (e.g. an OpenAI 429) is retried the next time the pipeline or a backfill asks.
     const cached = must<{ message_id: string }[]>(
       await supabase
         .from('message_analyses')
         .select('message_id')
         .eq('message_id', msg.id)
-        .eq('viewer_lang', viewerLang),
+        .eq('viewer_lang', viewerLang)
+        .eq('failed', false),
     );
     if (cached.length) return;
     const text = msg.original_text?.trim();
@@ -172,9 +169,17 @@ export async function listThreadAnalyses(threadId: string, viewerLang: string): 
       .order('created_at', { ascending: false })
       .limit(200),
   ).map((m) => m.id);
-  if (!ids.length) return [];
-  const rows = must<AnalysisRow[]>(
-    await supabase.from('message_analyses').select('*').in('message_id', ids).eq('viewer_lang', viewerLang),
-  );
-  return rows.map(toAnalysis);
+  // Chunked: 200 UUIDs in one `in` filter make a URL long enough to be rejected.
+  const out: MessageAnalysis[] = [];
+  for (let k = 0; k < ids.length; k += 100) {
+    const rows = must<AnalysisRow[]>(
+      await supabase
+        .from('message_analyses')
+        .select('*')
+        .in('message_id', ids.slice(k, k + 100))
+        .eq('viewer_lang', viewerLang),
+    );
+    out.push(...rows.map(toAnalysis));
+  }
+  return out;
 }

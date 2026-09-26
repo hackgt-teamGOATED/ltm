@@ -12,8 +12,10 @@ function locate(hay: string, needle: string, claimed: Span[]): Span | null {
   const n = needle.trim();
   if (!n) return null;
   const candidates: Span[] = [];
-  for (const h of [hay, hay.toLowerCase()]) {
-    const target = h === hay ? n : n.toLowerCase();
+  // Exact pass first, then a case-folded pass (the needle is folded by pass, not by comparing strings).
+  for (const fold of [false, true]) {
+    const h = fold ? hay.toLowerCase() : hay;
+    const target = fold ? n.toLowerCase() : n;
     for (let at = h.indexOf(target); at !== -1; at = h.indexOf(target, at + 1)) candidates.push([at, at + n.length]);
     if (candidates.length) break;
   }

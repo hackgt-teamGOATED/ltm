@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Server } from 'socket.io';
-import { supabase } from './supabase.js';
+import { HttpError } from './http.js';
+import { must, supabase } from './supabase.js';
 import { env } from './env.js';
 import { synthesize, transcribe, translate } from './ai.js';
 import { analyzeForViewers } from './learning/analyze.js';
@@ -25,18 +26,9 @@ type MessageRow = {
 
 export type Profile = { id: string; displayName: string; language: string };
 
-export class HttpError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-  }
-}
+export { HttpError };
 
 // ---------- helpers ----------
-
-function must<T>(res: { data: unknown; error: { message: string } | null }): T {
-  if (res.error) throw new Error(res.error.message);
-  return res.data as T;
-}
 
 const toProfile = (p: ProfileRow): Profile => ({ id: p.id, displayName: p.display_name, language: p.language });
 

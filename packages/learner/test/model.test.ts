@@ -104,6 +104,13 @@ test('a long gap turns mastered into fading', () => {
   assert.equal(status(t, T0 + 120 * DAY_MS), 'fading');
 });
 
+test('an out-of-order older event never moves lastReview backwards', () => {
+  const a = applyEvent(undefined, ev('read_unaided', T0 + 2 * DAY_MS));
+  const b = applyEvent(a, ev('read_unaided', T0));
+  assert.equal(b?.skills.recognize?.lastReview, T0 + 2 * DAY_MS);
+  close(b?.skills.recognize?.stability ?? 0, a?.skills.recognize?.stability ?? 0);
+});
+
 test('an unseen inflected form transfers at 0.85', () => {
   let s = applyEvent(undefined, ev('read_unaided', T0, { form: 'casa' }));
   s = applyEvent(s, ev('read_unaided', T0 + DAY_MS, { form: 'casas' }));

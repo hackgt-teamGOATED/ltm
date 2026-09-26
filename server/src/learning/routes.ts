@@ -1,20 +1,20 @@
 // Learning-layer endpoints (PLAN.md §6.4). Mounted under /api next to the v0 routes.
 import { type NextFunction, type Request, type Response, Router } from 'express';
 import type { Server } from 'socket.io';
-import { HttpError } from '../messages.js';
+import { HttpError } from '../http.js';
 import { backfillThread, getAnalysis, listThreadAnalyses } from './analyze.js';
 import { getWordNotes } from './notes.js';
 import {
   getSettings,
   listEvents,
   loadMastery,
-  parseEvent,
   practice,
   progressDetail,
   progressOverview,
   putSettings,
   recordEvents,
 } from './progress.js';
+import { parseEvent } from './events.js';
 import { isLang } from './types.js';
 
 const wrap =
@@ -48,8 +48,9 @@ export function buildLearningRouter(io: Server) {
       if (typeof learningEnabled !== 'boolean') throw new HttpError(400, 'learningEnabled must be a boolean');
       const langOrNull = learningLang == null ? null : lang(learningLang, 'learningLang');
       if (learningEnabled && !langOrNull) throw new HttpError(400, 'learningLang is required when turning Heirloom on');
-      const saved = await putSettings(threadId, str(profileId, 'profileId'), learningEnabled, langOrNull);
-      if (learningEnabled && langOrNull) void backfillThread(io, threadId, profileId, langOrNull);
+      const pid = str(profileId, 'profileId');
+      const saved = await putSettings(threadId, pid, learningEnabled, langOrNull);
+      if (learningEnabled && langOrNull) void backfillThread(io, threadId, pid, langOrNull);
       res.json(saved);
     }),
   );

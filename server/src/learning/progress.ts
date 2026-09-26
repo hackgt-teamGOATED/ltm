@@ -11,30 +11,14 @@ import {
   practiceItems,
   RECENT_MESSAGES,
   recognizeRecall,
-  replay,
   status,
   wordLists,
 } from '@heirloom/learner';
 import type { Server } from 'socket.io';
-import { HttpError } from '../messages.js';
-import { supabase } from '../supabase.js';
-import { must } from './analyze.js';
-import { isLang, type Lang, type Token } from './types.js';
-
-const EVENT_TYPES: EventType[] = [
-  'exposure_hinted',
-  'read_unaided',
-  'tap_reveal',
-  'tap_explore',
-  'guess_correct',
-  'guess_wrong',
-  'audio_play',
-  'show_translation',
-  'used_suggested',
-  'used_unprompted',
-];
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const uuidOrNull = (x: unknown) => (typeof x === 'string' && UUID_RE.test(x) ? x : null);
+import { HttpError } from '../http.js';
+import { must, supabase } from '../supabase.js';
+import { runExclusive } from './queue.js';
+import type { Lang, Token } from './types.js';
 
 type EventRow = {
   profile_id: string;
@@ -60,26 +44,6 @@ const toEvent = (r: EventRow): LearningEvent => ({
   options: r.options,
   ...(r.romanization_shown === null ? {} : { romanizationShown: r.romanization_shown }),
 });
-
-/** Validates one client event. `at` may be supplied (seeding, offline queue) but never in the future. */
-export function parseEvent(x: unknown, now: number): LearningEvent {
-  const e = (x ?? {}) as Record<string, unknown>;
-  if (typeof e.lemma !== 'string' || !e.lemma.trim() || e.lemma.length > 80) throw new HttpError(400, 'event.lemma');
-  if (!isLang(e.lang)) throw new HttpError(400, 'event.lang');
-  if (!EVENT_TYPES.includes(e.type as EventType)) throw new HttpError(400, 'event.type');
-  const at = typeof e.at === 'number' && Number.isFinite(e.at) ? Math.min(e.at, now) : now;
-  return {
-    lemma: e.lemma.trim(),
-    lang: e.lang,
-    type: e.type as EventType,
-    at,
-    form: typeof e.form === 'string' ? e.form.slice(0, 80) : undefined,
-    threadId: uuidOrNull(e.threadId),
-    messageId: uuidOrNull(e.messageId),
-    options: typeof e.options === 'number' ? Math.round(e.options) : null,
-    ...(typeof e.romanizationShown === 'boolean' ? { romanizationShown: e.romanizationShown } : {}),
-  };
-}
 
 export async function loadMastery(profileId: string, lang: string, lemmas?: string[]): Promise<Mastery> {
   const out: Mastery = {};
@@ -113,34 +77,31 @@ export async function insertEvents(profileId: string, events: LearningEvent[]) {
     romanization_shown: e.romanizationShown ?? null,
     created_at: new Date(e.at).toISOString(),
   }));
-  for (let k = 0; k < rows.length; k += 500) must(await supabase.from('learning_events').insert(rows.slice(k, k + 500)));
+  for (let k = 0; k < rows.length; k += 500) {
+    const res = await supabase.from('learning_events').insert(rows.slice(k, k + 500));
+    // 23503 = foreign key violation: an unknown profile, thread or message id is a client error.
+    if (res.error?.code === '23503') throw new HttpError(400, 'Unknown profileId, threadId or messageId');
+    must(res);
+  }
 }
 
-// One profile's events apply strictly in order, so two quick POSTs can't overwrite each other's mastery.
-const chains = new Map<string, Promise<unknown>>();
-
+/** Stores events and applies them to mastery, one request per profile at a time. */
 export function recordEvents(io: Server, profileId: string, events: LearningEvent[]) {
-  const prev = chains.get(profileId) ?? Promise.resolve();
-  const job = prev
-    .catch(() => undefined)
-    .then(async () => {
-      await insertEvents(profileId, events);
-      const changed: { lang: Lang; lemma: string; state: LemmaState; status: string }[] = [];
-      const now = Date.now();
-      for (const lang of new Set(events.map((e) => e.lang))) {
-        const mine = events.filter((e) => e.lang === lang);
-        const before = await loadMastery(profileId, lang, [...new Set(mine.map((e) => e.lemma))]);
-        const { mastery, changed: lemmas } = applyEvents(before, mine);
-        const states = lemmas.map((l) => mastery[l]);
-        await saveMastery(profileId, states);
-        for (const s of states) changed.push({ lang, lemma: s.lemma, state: s, status: status(s, now) });
-      }
-      if (changed.length) io.to(`profile:${profileId}`).emit('mastery:updated', { profileId, changed });
-      return { changed };
-    });
-  chains.set(profileId, job);
-  void job.finally(() => chains.get(profileId) === job && chains.delete(profileId));
-  return job;
+  return runExclusive(profileId, async () => {
+    await insertEvents(profileId, events);
+    const changed: { lang: Lang; lemma: string; state: LemmaState; status: string }[] = [];
+    const now = Date.now();
+    for (const lang of new Set(events.map((e) => e.lang))) {
+      const mine = events.filter((e) => e.lang === lang);
+      const before = await loadMastery(profileId, lang, [...new Set(mine.map((e) => e.lemma))]);
+      const { mastery, changed: lemmas } = applyEvents(before, mine);
+      const states = lemmas.map((l) => mastery[l]);
+      await saveMastery(profileId, states);
+      for (const st of states) changed.push({ lang, lemma: st.lemma, state: st, status: status(st, now) });
+    }
+    if (changed.length) io.to(`profile:${profileId}`).emit('mastery:updated', { profileId, changed });
+    return { changed };
+  });
 }
 
 export async function listEvents(profileId: string, lang?: string): Promise<LearningEvent[]> {
@@ -313,9 +274,16 @@ export async function progressDetail(profileId: string, lang: string) {
     ...(info.get(lemma) ?? { surface: lemma, gloss: '' }),
   });
 
+  // One pass over the sorted log, snapshotting mastery at each week boundary.
+  const sorted = [...events].sort((a, b) => a.at - b.at);
+  let snap: Mastery = {};
+  let cursor = 0;
   const weekly = Array.from({ length: WEEKS }, (_, k) => {
     const end = now - (WEEKS - 1 - k) * 7 * DAY_MS;
-    const snap = replay(events, end, lang as Lang);
+    let upTo = cursor;
+    while (upTo < sorted.length && sorted[upTo].at <= end) upTo++;
+    snap = applyEvents(snap, sorted.slice(cursor, upTo)).mastery;
+    cursor = upTo;
     const share = languageStage(snap, trackedLemmas(recentBefore(ctx.messages, end)), end).readableShare;
     return {
       week: k + 1,

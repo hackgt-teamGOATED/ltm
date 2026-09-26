@@ -130,7 +130,8 @@ function applyEvidence(lemma: LemmaState, ev: Evidence, now: number): void {
       s.stability *= 1 + ev.w * EXPOSURE_GAIN * spacing * multiContext;
     }
     s.stability = clamp(s.stability, MIN_S, MAX_S);
-    s.lastReview = now;
+    // An out-of-order (older) event never moves the last review backwards; its R_before was 1, so it adds no gain.
+    s.lastReview = Math.max(s.lastReview, now);
   }
 
   if (ev.kind === 'success') {
