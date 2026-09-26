@@ -17,7 +17,7 @@ type AnalysisRow = {
   failed: boolean;
 };
 
-type MsgRow = {
+export type MsgRow = {
   id: string;
   thread_id: string;
   sender_id: string;
@@ -54,7 +54,8 @@ async function viewerLangsFor(msg: MsgRow): Promise<string[]> {
   );
 }
 
-async function analyzeOne(io: Server, msg: MsgRow, viewerLang: string): Promise<void> {
+/** Analyze one message for one viewer language (cached). `io` is null when run from a script. */
+export async function analyzeOne(io: Server | null, msg: MsgRow, viewerLang: string): Promise<void> {
   const key = `${msg.id}:${viewerLang}`;
   const running = inFlight.get(key);
   if (running) return running;
@@ -105,7 +106,7 @@ async function analyzeOne(io: Server, msg: MsgRow, viewerLang: string): Promise<
       }
     }
     must(await supabase.from('message_analyses').upsert(row));
-    io.to(`thread:${msg.thread_id}`).emit('analysis:ready', { messageId: msg.id, viewerLang });
+    io?.to(`thread:${msg.thread_id}`).emit('analysis:ready', { messageId: msg.id, viewerLang });
   })().finally(() => inFlight.delete(key));
   inFlight.set(key, job);
   return job;

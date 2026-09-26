@@ -443,7 +443,7 @@ don't change, only how they render. Target: re-render within 300ms on an iPhone.
 ### 9.3 Demo video beats (2–3 minutes, Meta challenge)
 1. Week 1: Abuela's Spanish voice note → translated voice, translation-first bubble.
 2. Tap a word → card → an idiom → View more.
-3. Slider to Week 4 and Week 8: the same chat fades; glosses dissolve; stage-up card.
+3. Slider to Week 4 and Week 8: the same chat fades (translation-first → original-first); glosses dissolve; stage-up card.
 4. Zara's Urdu chat: right-to-left script, romanization fading separately.
 5. Progress tab: two language cards, word lists, one practice question.
 6. One evaluation chart (§10) for the AI/ML track. Close on the tagline.
@@ -523,8 +523,8 @@ practice quiz feeding events.
 
 ### Phase 7: Demo mode and polish — Victor + Sarosh (target 2:30 AM = freeze)
 Time-travel slider, PWA icon, final visual pass, seed rerun from scratch, §10 charts exported.
-**Done when:** from a fresh seed, the slider Week 1 → Week 8 moves the Spanish chat Listener → Conversant or
-Fluent on an iPhone, within 300ms per step.
+**Done when:** from a fresh seed, the slider Week 1 → Week 8 moves the Spanish chat Listener → Reader (D-024:
+realistic arc, no Fluent in 8 weeks) on an iPhone, within 300ms per step.
 
 ### Phase 8: Ship — everyone (2:30–5:00 AM)
 Video (~3:30 AM), Devpost (Oracle of the Deep + Meta), `docs/WRITEUP.md`, README with the architecture

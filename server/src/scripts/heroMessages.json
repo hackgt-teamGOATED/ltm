@@ -1,0 +1,43 @@
+{
+  "_comment": "Hero messages for the demo (PLAN.md §9.1). Drafted by the team, NOT yet checked by a native speaker (D-023): replace the text here once a speaker approves, then set nativeChecked to true. Each has at least one idiom.",
+  "es": [
+    {
+      "id": "es-1",
+      "text": "¡Hola mijo! Te echo mucho de menos. ¿Ya comiste? Aquí hace un frío que pela.",
+      "idiom": "hace un frío que pela = it's freezing cold",
+      "nativeChecked": false
+    },
+    {
+      "id": "es-2",
+      "text": "No te preocupes por el examen, mijo. No hay mal que por bien no venga.",
+      "idiom": "no hay mal que por bien no venga = every cloud has a silver lining",
+      "nativeChecked": false
+    },
+    {
+      "id": "es-3",
+      "text": "¡Más vale tarde que nunca! Por fin aprendiste a cocinar la sopa de la abuela.",
+      "idiom": "más vale tarde que nunca = better late than never",
+      "nativeChecked": false
+    }
+  ],
+  "ur": [
+    {
+      "id": "ur-1",
+      "text": "تم آج اتنے خاموش کیوں ہو؟ دال میں کچھ کالا ہے۔",
+      "idiom": "دال میں کچھ کالا ہے (daal mein kuch kaala hai) = something is fishy",
+      "nativeChecked": false
+    },
+    {
+      "id": "ur-2",
+      "text": "امتحان کی وجہ سے میری ناک میں دم آ گیا ہے۔",
+      "idiom": "ناک میں دم آنا (naak mein dam aana) = to be fed up, at one's wits' end",
+      "nativeChecked": false
+    },
+    {
+      "id": "ur-3",
+      "text": "چلو کل بازار چلتے ہیں۔ ایک پنتھ دو کاج، کھانا بھی کھائیں گے اور کتابیں بھی لیں گے۔",
+      "idiom": "ایک پنتھ دو کاج (ek panth do kaaj) = two birds with one stone",
+      "nativeChecked": false
+    }
+  ]
+}
