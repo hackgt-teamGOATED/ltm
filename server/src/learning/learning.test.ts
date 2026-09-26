@@ -187,3 +187,36 @@ test('attachTimings matches Whisper words in order on normalized surface', () =>
   assert.equal(a.tokens[1].end, 0.8);
   assert.equal(a.tokens[3].start, 0.9);
 });
+
+// ---- no message text in errors or logs (PR #2 review, AGENTS.md hard rule) ----
+
+test('AnalysisInvalid carries a code and offset, never message text', () => {
+  const MARKER = 'ZQXJ-private-marker';
+  const cases: [string, RawAnalysis][] = [
+    [`hola ${MARKER}`, raw([tok('hola', 'hola', 'hi', [])])], // unanalyzed tail
+    [`${MARKER} hola`, raw([tok('hola', 'hola', 'hi', [])])], // skipped text
+    ['hola', raw([tok(MARKER, MARKER, 'x', [])])], // surface not found
+  ];
+  for (const [original, r] of cases) {
+    try {
+      alignAnalysis(original, r, 'hi', false);
+      assert.fail('expected AnalysisInvalid');
+    } catch (e) {
+      assert.ok(e instanceof AnalysisInvalid);
+      assert.ok(!e.message.includes(MARKER), e.message);
+      assert.ok(!String(e.stack).includes(MARKER));
+    }
+  }
+  try {
+    alignAnalysis(MARKER, raw([tok(MARKER, MARKER, 'x', [])]), 'x', true);
+  } catch (e) {
+    assert.ok(e instanceof AnalysisInvalid && e.code === 'missing_romanization' && !e.message.includes(MARKER));
+  }
+});
+
+test('safeErr logs name/code/status only', async () => {
+  const { safeErr } = await import('../logSafe.js');
+  const err = Object.assign(new Error('user said: ZQXJ-private-marker'), { code: 'rate_limit', status: 429 });
+  assert.equal(safeErr(err), 'Error code=rate_limit status=429');
+  assert.equal(safeErr('boom'), 'string');
+});

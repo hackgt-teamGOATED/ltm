@@ -3,6 +3,7 @@ import type { Server } from 'socket.io';
 import { analyzeMessage, type WordTiming } from '../ai.js';
 import { env } from '../env.js';
 import { must, supabase } from '../supabase.js';
+import { safeErr } from '../logSafe.js';
 import { AnalysisInvalid, alignAnalysis, attachTimings } from './align.js';
 import type { Lang, MessageAnalysis, Phrase, Token } from './types.js';
 
@@ -99,7 +100,7 @@ async function analyzeOne(io: Server, msg: MsgRow, viewerLang: string): Promise<
         row = { ...row, tokens, phrases, translation, failed: false };
         break;
       } catch (err) {
-        const why = err instanceof AnalysisInvalid ? `invalid: ${err.message}` : (err as Error).message;
+        const why = err instanceof AnalysisInvalid ? `invalid:${err.message}` : `model_or_network_error (${safeErr(err)})`;
         console.warn(`[analyze ${msg.id} → ${viewerLang}] attempt ${attempt} failed (${why})`);
       }
     }
@@ -119,7 +120,7 @@ export async function analyzeForViewers(io: Server, messageId: string): Promise<
     if (msg.status !== 'ready') return;
     for (const lang of await viewerLangsFor(msg)) await analyzeOne(io, msg, lang);
   } catch (err) {
-    console.error(`[analyze ${messageId}]`, err);
+    console.error(`[analyze ${messageId}] ${safeErr(err)}`);
   }
 }
 
@@ -149,7 +150,7 @@ export async function backfillThread(io: Server, threadId: string, profileId: st
     };
     await Promise.all([worker(), worker(), worker()]);
   } catch (err) {
-    console.error(`[backfill ${threadId}]`, err);
+    console.error(`[backfill ${threadId}] ${safeErr(err)}`);
   }
 }
 

@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import { env } from './env.js';
 import { buildRouter } from './routes.js';
 import { buildLearningRouter } from './learning/routes.js';
+import { safeErr } from './logSafe.js';
 import { HttpError } from './messages.js';
 
 const origins = env.WEB_ORIGIN.split(',').map((o) => o.trim());
@@ -35,9 +36,9 @@ io.on('connection', (socket) => {
 app.use('/api', buildRouter(io));
 app.use('/api', buildLearningRouter(io));
 
-app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
-  console.error(err);
+  console.error(`[${req.method} ${req.path}] ${safeErr(err)}`);
   res.status(500).json({ error: err instanceof Error ? err.message : 'Server error' });
 });
 

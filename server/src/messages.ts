@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Server } from 'socket.io';
 import { HttpError } from './http.js';
+import { safeErr } from './logSafe.js';
 import { must, supabase } from './supabase.js';
 import { env } from './env.js';
 import { synthesize, transcribe, translate } from './ai.js';
@@ -187,7 +188,7 @@ async function processText(io: Server, row: MessageRow, targets: string[]) {
     if (translations.length) must(await supabase.from('message_translations').insert(translations));
     await finish(io, row, 'ready');
   } catch (err) {
-    console.error(`[text ${row.id}]`, err);
+    console.error(`[text ${row.id}] ${safeErr(err)}`);
     await finish(io, row, 'failed');
   }
 }
@@ -275,7 +276,7 @@ async function processVoice(
     if (translations.length) must(await supabase.from('message_translations').insert(translations));
     await finish(io, row, 'ready');
   } catch (err) {
-    console.error(`[voice ${row.id}]`, err);
+    console.error(`[voice ${row.id}] ${safeErr(err)}`);
     await finish(io, row, 'failed');
   }
 }

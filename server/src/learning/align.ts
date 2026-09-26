@@ -3,7 +3,24 @@
 import type { RawAnalysis, WordTiming } from '../ai.js';
 import type { Phrase, Span, Token } from './types.js';
 
-export class AnalysisInvalid extends Error {}
+export type AnalysisInvalidCode =
+  | 'surface_not_found'
+  | 'skipped_text'
+  | 'missing_romanization'
+  | 'unanalyzed_tail'
+  | 'rejoin_mismatch'
+  | 'span_out_of_range';
+
+/** Why an analysis was rejected. Carries a code and an offset, never message text (it gets logged). */
+export class AnalysisInvalid extends Error {
+  constructor(
+    readonly code: AnalysisInvalidCode,
+    readonly at?: number,
+  ) {
+    super(at === undefined ? code : `${code}@${at}`);
+    this.name = 'AnalysisInvalid';
+  }
+}
 
 const PUNCT_RE = /^[\p{P}\p{S}\s]+$/u;
 
@@ -55,17 +72,17 @@ export function alignAnalysis(
     const surface = t.surface.trim();
     if (!surface) return;
     const at = original.indexOf(surface, cursor);
-    if (at === -1) throw new AnalysisInvalid(`surface "${surface}" not found in order`);
+    if (at === -1) throw new AnalysisInvalid('surface_not_found', rawIdx);
     const gap = original.slice(cursor, at);
     const lead = /^\s*/.exec(gap)?.[0] ?? '';
     if (gap.trim()) {
-      if (!PUNCT_RE.test(gap)) throw new AnalysisInvalid(`skipped text "${gap.trim()}"`);
+      if (!PUNCT_RE.test(gap)) throw new AnalysisInvalid('skipped_text', cursor);
       pushPunct(gap);
     }
     const isPunct = t.isPunct || PUNCT_RE.test(surface);
     const lemma = (t.lemma || surface).trim();
     if (!isPunct && needsRomanization && !t.romanization?.trim()) {
-      throw new AnalysisInvalid(`missing romanization for "${surface}"`);
+      throw new AnalysisInvalid('missing_romanization', rawIdx);
     }
     rawIndexToToken.set(rawIdx, tokens.length);
     tokens.push({
@@ -83,12 +100,12 @@ export function alignAnalysis(
   });
   const tail = original.slice(cursor);
   if (tail.trim()) {
-    if (!PUNCT_RE.test(tail)) throw new AnalysisInvalid(`unanalyzed tail "${tail.trim()}"`);
+    if (!PUNCT_RE.test(tail)) throw new AnalysisInvalid('unanalyzed_tail', cursor);
     pushPunct(tail);
   }
 
   const rejoined = tokens.map((t) => t.pre + t.surface).join('');
-  if (rejoined.trim() !== original.trim()) throw new AnalysisInvalid('surfaces do not rejoin to the original');
+  if (rejoined.trim() !== original.trim()) throw new AnalysisInvalid('rejoin_mismatch');
 
   // 2. Spans into the translation. Phrases first so they claim multi-word stretches.
   const claimed: Span[] = [];
@@ -118,7 +135,7 @@ export function alignAnalysis(
   });
 
   for (const s of [...tokens.flatMap((t) => t.tSpans ?? []), ...phrases.flatMap((p) => p.tSpans ?? [])]) {
-    if (!(s[0] >= 0 && s[1] <= translation.length && s[0] < s[1])) throw new AnalysisInvalid('span out of range');
+    if (!(s[0] >= 0 && s[1] <= translation.length && s[0] < s[1])) throw new AnalysisInvalid('span_out_of_range');
   }
   return { tokens, phrases };
 }
