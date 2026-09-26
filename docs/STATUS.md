@@ -10,15 +10,15 @@ only when every done-criterion in PLAN.md §11 passed; add one line of notes.
 - **Next checkpoint:** 9:30 PM. Passes when Phase 0 is done, `npm test` passes the parity fixtures,
   and a real message gets a stored analysis with valid `tSpans`.
 - **Freeze:** 2:30 AM Sunday. **Submit:** 5:00 AM (hard deadline 8:00 AM).
-- **Blockers:** Urdu native speaker for hero messages: who?
+- **Blockers:** Supabase secret key rejected (`Invalid Compact JWS`); run `supabase/002_learning.sql`. Urdu/Spanish native speaker to check hero messages.
 
 ## Phases
 
 | Phase | Owner | Target | Status | Notes |
 | --- | --- | --- | --- | --- |
 | 0 Foundations and spikes | Victor | 7:30 PM | todo | |
-| 1 Learner package | Lexi | 9:00 PM | todo | |
-| 2 Server learning layer | Sarosh | 9:30 PM | todo | |
+| 1 Learner package | Lexi | 9:00 PM | done | Built from PLAN §8 (no Python reference, D-020); 18 tests pass |
+| 2 Server learning layer | Sarosh | 9:30 PM | built | Typecheck + build pass; live check blocked on Supabase key + `002_learning.sql` |
 | 2b Seed script | Sarosh | 10:30 PM | todo | |
 | 3 Chat core | Victor | 9:30 PM | todo | |
 | 4 Heirloom layer | Victor + Sarosh | 11:30 PM | todo | |
