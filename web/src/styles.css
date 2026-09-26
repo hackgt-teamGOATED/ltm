@@ -66,6 +66,9 @@ h2 { font-size: 1.0625rem; font-weight: 600; }
 .bubble.mine { align-self: flex-end; background: var(--seaglass); border-top-right-radius: 4px; }
 .bubble .text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 1rem; }
 .bubble .text:lang(hi) { font-size: 1.0625rem; line-height: 1.7; } /* Devanagari needs a little more room */
+/* Urdu is Nastaliq and right-to-left: dir="auto" on the text flips it, the tall script needs the leading */
+:lang(ur) { font-family: 'Noto Nastaliq Urdu', var(--font); line-height: 2.2; }
+.bubble .text:lang(ur) { font-size: 1.0625rem; }
 .status { font-size: 0.8125rem; color: var(--muted); font-style: italic; }
 .status.error { color: var(--danger); font-style: normal; }
 .voice { width: min(18rem, 100%); height: 2.25rem; margin: 0.125rem 0 0.25rem; }

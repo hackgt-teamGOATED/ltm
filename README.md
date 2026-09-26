@@ -65,7 +65,8 @@ blocks committing keys, and runs `npm run doctor`.
 ## Seeing both sides
 
 - **Split screen:** `/split.html?left=Arjun&right=Nani` loads two copies of the app, one per person.
-  Best for building and for recording the demo video.
+  Best for building and for recording the demo video. `/split.html?left=Arjun&right=Dada` does the
+  same for Urdu (right-to-left Nastaliq).
 - **Separate windows:** any URL accepts `?as=Nani` (name or profile id). Without it, each tab
   remembers its own person, so two windows in one browser also work.
 - **Separate devices (phones, a teammate's laptop):** run a free HTTPS tunnel to the web port:
@@ -141,7 +142,8 @@ web/src/
   components/Composer.tsx     text input + voice recording
 supabase/
   001_init.sql  schema, RLS lock-down, private audio bucket
-  seed.sql      Arjun (en), Nani (hi), Abuela (es)
+  003_urdu_demo_user.sql  adds Dada (ur) + the Arjun/Dada thread
+  seed.sql      Arjun (en), Nani (hi), Abuela (es), Dada (ur)
 ```
 
 ## Known v0 shortcuts
