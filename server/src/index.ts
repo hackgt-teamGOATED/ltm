@@ -1,4 +1,7 @@
+import { existsSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
 import { Server } from 'socket.io';
@@ -35,6 +38,20 @@ io.on('connection', (socket) => {
 
 app.use('/api', buildRouter(io));
 app.use('/api', buildLearningRouter(io));
+
+// Production: serve the Expo web export from the same origin (PLAN.md §2, §6.5). STATIC_DIR is relative
+// to the repo root, e.g. client/dist. Unknown non-API paths fall back to index.html (single-page app).
+if (env.STATIC_DIR) {
+  const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+  const dir = resolve(repoRoot, env.STATIC_DIR);
+  if (existsSync(join(dir, 'index.html'))) {
+    app.use(express.static(dir, { index: 'index.html', maxAge: '1h' }));
+    app.get(/^\/(?!api\/|socket\.io\/).*/, (_req, res) => res.sendFile(join(dir, 'index.html')));
+    console.log(`Serving the web app from ${dir}`);
+  } else {
+    console.warn(`STATIC_DIR is set but ${dir}/index.html is missing; did the web export run?`);
+  }
+}
 
 app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });

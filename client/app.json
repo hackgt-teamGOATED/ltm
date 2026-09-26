@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "Heirloom",
+    "slug": "heirloom",
+    "scheme": "heirloom",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": { "supportsTablet": false, "bundleIdentifier": "dev.heirloom.app" },
+    "android": { "package": "dev.heirloom.app" },
+    "web": {
+      "output": "single",
+      "bundler": "metro",
+      "name": "Heirloom",
+      "shortName": "Heirloom",
+      "themeColor": "#FFFFFF",
+      "backgroundColor": "#FFFFFF",
+      "display": "standalone"
+    },
+    "plugins": [
+      "expo-router",
+      ["expo-audio", { "microphonePermission": "Heirloom records voice notes you choose to send." }],
+      "expo-image",
+      "expo-font",
+      "expo-status-bar"
+    ],
+    "experiments": { "typedRoutes": false }
+  }
+}

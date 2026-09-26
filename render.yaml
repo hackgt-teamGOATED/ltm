@@ -1,0 +1,28 @@
+# Render blueprint (PLAN.md §6.5, D-022): one web service serves the API, Socket.IO and the Expo web export.
+# Secrets are entered in the Render dashboard (sync: false), never committed.
+services:
+  - type: web
+    name: heirloom
+    runtime: node
+    plan: free # switch to Starter before judging so it doesn't sleep
+    buildCommand: >-
+      npm ci --include=dev &&
+      npm run build -w @heirloom/learner &&
+      npm run build -w server &&
+      npm run export:web -w client
+    startCommand: npm start -w server
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: STATIC_DIR
+        value: client/dist
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
