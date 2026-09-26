@@ -111,6 +111,7 @@ that shows the stored translation the recipient received.
 | GET | `/api/threads/:id/messages` | |
 | POST | `/api/threads/:id/messages` | JSON `{ senderId, text }` |
 | POST | `/api/threads/:id/voice` | multipart: `senderId`, `audio` |
+| POST | `/api/speech` | JSON `{ text, language }` → mp3 bytes (read aloud fallback) |
 
 Socket events: client emits `thread:join` / `thread:leave` with a thread id; server emits
 `message:new` and `message:updated` with the full message.
@@ -151,7 +152,10 @@ supabase/
 - **No auth.** The client says who the sender is. Fine for a demo, not for real use.
   Next step: Supabase Auth, then check the user on the server instead of trusting `senderId`.
 - **Tables are locked to the server.** RLS is on with no policies, so the public key can read nothing.
-- **Read aloud for text** uses the browser's built-in speech engine. Hindi voice quality depends on the OS.
+- **Read aloud for text** uses the browser's built-in speech engine when the OS has a voice for
+  the language, and falls back to server TTS (`POST /api/speech`) when it doesn't. macOS ships a
+  Hindi voice but no Urdu one, so Urdu goes through the server: a second of latency and one API
+  call per new phrase, cached per phrase in the tab. Local-voice quality still depends on the OS.
 - **Voice cloning** is out of scope for v0.
 
 ## Next (v1)
