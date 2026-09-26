@@ -89,6 +89,8 @@ export interface WordNotes {
   culture: string | null;
   examples: { text: string; translation: string }[];
   isIdiom: boolean;
+  /** Sentences from the viewer's own chats (never cached or shared). */
+  yourExamples: { text: string; translation: string }[];
 }
 
 export type Stage = 'listener' | 'reader' | 'conversant' | 'fluent';
