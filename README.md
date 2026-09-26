@@ -22,20 +22,45 @@ All model names are env vars, so you can swap them without code changes.
 The browser never talks to Supabase or OpenAI directly. Everything goes through the
 Express server, so no key ever reaches the client.
 
-## Setup (about 10 minutes)
+## Teammate quickstart (about 5 minutes)
 
-1. **Supabase:** create a project. In the SQL editor, run `supabase/001_init.sql`, then `supabase/seed.sql`.
-2. **Server env:** `cp server/.env.example server/.env` and fill in `SUPABASE_URL`,
-   `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API) and `OPENAI_API_KEY`.
-   `.env` is gitignored. Never commit it; a committed OpenAI key gets disabled.
-3. **Install and run** from the repo root:
-   ```bash
-   npm install
-   npm run dev
-   ```
-   API on http://localhost:4000, web on http://localhost:5173.
-4. **Try it:** open http://localhost:5173/split.html to see Arjun (English) and Nani (Hindi)
-   side by side, chatting live. Change who's in each pane with `?left=Abuela&right=Arjun`.
+You need Node 22+ and the Supabase URL + secret key from Victor (sent privately).
+
+```bash
+git clone https://github.com/hackgt-teamGOATED/ltm.git heritage-chat
+cd heritage-chat
+npm run setup      # run this yourself, not through an agent: it asks for keys
+npm run dev
+```
+
+Then open http://localhost:5173/split.html.
+
+`npm run setup` checks Node, saves your keys to `~/.config/heritage-chat/server.env`
+(outside the repo, readable only by you), installs dependencies, installs a git hook that
+blocks committing keys, and runs `npm run doctor`.
+
+- **Something broken?** `npm run doctor` checks keys, database, storage and OpenAI without
+  printing any secrets, and tells you how to fix each problem.
+- **Wrong key?** `npm run setup -- --reset`
+- **Shared database:** everyone uses the same Supabase project, so you'll see each other's
+  test messages. That's expected.
+
+### First-time project setup (already done, for reference)
+
+1. Create a Supabase project. In the SQL editor, run `supabase/001_init.sql`, then `supabase/seed.sql`.
+2. Run `npm run setup` and paste the Project URL, the Secret key (`sb_secret_…`) and an OpenAI key.
+
+## Keeping secrets safe (humans and agents)
+
+- Keys never live in the repo. The server loads them from `~/.config/heritage-chat/server.env`
+  (or `DOTENV_CONFIG_PATH` if set, or a gitignored `server/.env` as a fallback).
+- `AGENTS.md` (also loaded by `CLAUDE.md`) tells coding agents the rules: never read the
+  secrets file, never run setup, use `npm run doctor` to diagnose.
+- `.claude/settings.json` denies Claude Code access to the secrets file, `.env` files and the
+  setup script. `.cursorignore` does the same for Cursor.
+- The pre-commit hook (`scripts/hooks/pre-commit`) rejects env files and key-shaped strings.
+- Keep manual approval on for agent terminal commands. Ignore rules stop file reads, not a shell
+  command an agent decides to run.
 
 ## Seeing both sides
 
@@ -92,13 +117,21 @@ Socket events: client emits `thread:join` / `thread:leave` with a thread id; ser
 ## Project layout
 
 ```
+scripts/
+  setup.sh            one-time setup: keys, deps, git hook, doctor
+  hooks/pre-commit    blocks committing env files / API keys
+.claude/
+  settings.json       Claude Code deny rules for secrets
+  skills/verify-pipeline/SKILL.md   end-to-end pipeline test for agents
+AGENTS.md             rules + architecture for coding agents (CLAUDE.md imports it)
 server/src/
   index.ts      Express + Socket.IO bootstrap
+  doctor.ts     `npm run doctor` setup check (never prints secrets)
   routes.ts     REST endpoints
   messages.ts   message pipeline (store → translate → TTS → emit)
   ai.ts         translate / transcribe / synthesize (OpenAI)
   supabase.ts   server-only Supabase client
-  env.ts        env loading
+  env.ts        env loading (~/.config/heritage-chat/server.env first)
 web/
   split.html                  two-pane view, one person per pane
 web/src/

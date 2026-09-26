@@ -4,3 +4,7 @@ dist/
 .env.*
 !.env.example
 .DS_Store
+
+# Personal Claude Code settings
+.claude/settings.local.json
+CLAUDE.local.md

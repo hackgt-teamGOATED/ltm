@@ -1,5 +1,16 @@
 {
   "permissions": {
-    "deny": ["Read(./.env)", "Read(./**/.env)", "Read(./**/.env.local)"]
+    "deny": [
+      "Read(~/.config/heritage-chat/**)",
+      "Edit(~/.config/heritage-chat/**)",
+      "Read(./**/.env)",
+      "Read(./**/.env.local)",
+      "Edit(./**/.env)",
+      "Bash(npm run setup:*)",
+      "Bash(bash scripts/setup.sh:*)",
+      "Bash(./scripts/setup.sh:*)",
+      "Bash(printenv:*)",
+      "Bash(git commit --no-verify:*)"
+    ]
   }
 }
