@@ -1,10 +1,36 @@
 node_modules/
 dist/
-.env
-.env.*
-!.env.example
 .DS_Store
 
-# Personal Claude Code settings
-.claude/settings.local.json
+# Env files and secrets (examples stay tracked)
+.env
+.env.*
+*.env
+.envrc
+!.env.example
+!**/.env.example
+
+# AI coding-assistant files (Claude Code, Cursor, Copilot, etc.)
+.claude/
+CLAUDE.md
 CLAUDE.local.md
+CLAUDE*.md
+AGENTS.md
+AGENTS*.md
+GEMINI.md
+.cursor/
+.cursorignore
+.cursorrules
+.cursorindexingignore
+.github/copilot-instructions.md
+.aider*
+.windsurf/
+.windsurfrules
+.codex/
+.continue/
+.clinerules
+.roo/
+.mcp.json
+scripts copy/claude/
+scripts/claude/
+.env
