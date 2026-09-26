@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Heritage Chat: both sides</title>
+    <style>
+      html, body { height: 100%; margin: 0; }
+      body { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: #1f2a37; }
+      iframe { width: 100%; height: 100%; border: 0; background: #e7edef; }
+      @media (max-width: 900px) { body { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; } }
+    </style>
+  </head>
+  <body>
+    <!-- Each pane is a full copy of the app signed in as a different person. -->
+    <iframe id="left" title="Left person" allow="microphone; autoplay"></iframe>
+    <iframe id="right" title="Right person" allow="microphone; autoplay"></iframe>
+    <script type="module">
+      // Usage: /split.html?left=Arjun&right=Nani  (names or profile ids)
+      const q = new URLSearchParams(location.search);
+      const as = (who) => `/?as=${encodeURIComponent(who)}`;
+      document.getElementById('left').src = as(q.get('left') ?? 'Arjun');
+      document.getElementById('right').src = as(q.get('right') ?? 'Nani');
+    </script>
+  </body>
+</html>
