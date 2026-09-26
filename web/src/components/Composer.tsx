@@ -80,6 +80,7 @@ export function Composer({ placeholder, onSendText, onSendVoice }: Props) {
       <div className="composer-row">
         <textarea
           rows={1}
+          dir="auto"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}

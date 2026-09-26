@@ -2,6 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import multer from 'multer';
 import type { Server } from 'socket.io';
 import * as svc from './messages.js';
+import { synthesize } from './ai.js';
 
 // Whisper's upload limit is 25 MB.
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
@@ -51,6 +52,23 @@ export function buildRouter(io: Server) {
       }
       const message = await svc.createVoiceMessage(io, String(req.params.id), senderId, req.file);
       res.status(202).json(message);
+    }),
+  );
+
+  // Read aloud for text in a language the browser has no installed voice for
+  // (Urdu on macOS, for example). Returns mp3 bytes; the client plays them directly.
+  r.post(
+    '/speech',
+    wrap(async (req, res) => {
+      const { text, language } = req.body ?? {};
+      if (typeof text !== 'string' || !text.trim() || typeof language !== 'string' || !language.trim()) {
+        return res.status(400).json({ error: 'text and language are required' });
+      }
+      if (text.length > 1000) {
+        return res.status(413).json({ error: 'Message is too long to read aloud' });
+      }
+      const mp3 = await synthesize(text.trim(), language.trim());
+      res.type('audio/mpeg').send(mp3);
     }),
   );
 

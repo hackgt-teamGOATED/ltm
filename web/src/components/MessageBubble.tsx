@@ -8,6 +8,7 @@ const timeFormat = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute:
 
 export function MessageBubble({ message, me, members }: Props) {
   const [showOther, setShowOther] = useState(false);
+  const [speech, setSpeech] = useState<'idle' | 'loading' | 'error'>('idle');
   const mine = message.senderId === me.id;
   const sameLanguage = message.originalLanguage === me.language;
   const mineTranslation = message.translations.find((t) => t.language === me.language);
@@ -29,6 +30,18 @@ export function MessageBubble({ message, me, members }: Props) {
       .map((m) => m.displayName)
       .join(', ') || langName(lang);
 
+  // Languages the browser has no voice for fall back to the server's TTS, which takes a moment.
+  async function readAloud() {
+    if (!primaryText) return;
+    setSpeech('loading');
+    try {
+      await speak(primaryText, primaryLang);
+      setSpeech('idle');
+    } catch {
+      setSpeech('error');
+    }
+  }
+
   return (
     <article className={`bubble ${mine ? 'mine' : 'theirs'}`}>
       {message.kind === 'voice' && primaryAudio && (
@@ -36,7 +49,7 @@ export function MessageBubble({ message, me, members }: Props) {
       )}
 
       {primaryText ? (
-        <p className="text" lang={primaryLang}>{primaryText}</p>
+        <p className="text" lang={primaryLang} dir="auto">{primaryText}</p>
       ) : (
         message.status !== 'failed' && <p className="status">{processingLabel}</p>
       )}
@@ -55,7 +68,9 @@ export function MessageBubble({ message, me, members }: Props) {
       <footer className="bubble-footer">
         <time dateTime={message.createdAt}>{timeFormat.format(new Date(message.createdAt))}</time>
         {message.kind === 'text' && primaryText && canSpeak() && (
-          <button className="link-button" onClick={() => speak(primaryText, primaryLang)}>Read aloud</button>
+          <button className="link-button" onClick={() => void readAloud()} disabled={speech === 'loading'}>
+            {speech === 'loading' ? 'Loading…' : speech === 'error' ? "Couldn't read aloud" : 'Read aloud'}
+          </button>
         )}
         {hasOther && (
           <button className="link-button" onClick={() => setShowOther((v) => !v)} aria-expanded={showOther}>
@@ -70,13 +85,13 @@ export function MessageBubble({ message, me, members }: Props) {
             message.translations.map((t) => (
               <div key={t.language} className="alt-item">
                 <p className="alt-label">{recipientName(t.language)} sees</p>
-                <p lang={t.language}>{t.text}</p>
+                <p lang={t.language} dir="auto">{t.text}</p>
                 {t.audioUrl && <audio className="voice" controls preload="none" src={t.audioUrl} />}
               </div>
             ))
           ) : (
             <div className="alt-item">
-              <p lang={message.originalLanguage}>{message.originalText}</p>
+              <p lang={message.originalLanguage} dir="auto">{message.originalText}</p>
               {message.kind === 'voice' && message.audioUrl && (
                 <audio className="voice" controls preload="none" src={message.audioUrl} />
               )}

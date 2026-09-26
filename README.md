@@ -65,7 +65,8 @@ blocks committing keys, and runs `npm run doctor`.
 ## Seeing both sides
 
 - **Split screen:** `/split.html?left=Arjun&right=Nani` loads two copies of the app, one per person.
-  Best for building and for recording the demo video.
+  Best for building and for recording the demo video. `/split.html?left=Arjun&right=Dada` does the
+  same for Urdu (right-to-left Nastaliq).
 - **Separate windows:** any URL accepts `?as=Nani` (name or profile id). Without it, each tab
   remembers its own person, so two windows in one browser also work.
 - **Separate devices (phones, a teammate's laptop):** run a free HTTPS tunnel to the web port:
@@ -110,6 +111,7 @@ that shows the stored translation the recipient received.
 | GET | `/api/threads/:id/messages` | |
 | POST | `/api/threads/:id/messages` | JSON `{ senderId, text }` |
 | POST | `/api/threads/:id/voice` | multipart: `senderId`, `audio` |
+| POST | `/api/speech` | JSON `{ text, language }` → mp3 bytes (read aloud fallback) |
 
 Socket events: client emits `thread:join` / `thread:leave` with a thread id; server emits
 `message:new` and `message:updated` with the full message.
@@ -141,7 +143,8 @@ web/src/
   components/Composer.tsx     text input + voice recording
 supabase/
   001_init.sql  schema, RLS lock-down, private audio bucket
-  seed.sql      Arjun (en), Nani (hi), Abuela (es)
+  003_urdu_demo_user.sql  adds Dada (ur) + the Arjun/Dada thread
+  seed.sql      Arjun (en), Nani (hi), Abuela (es), Dada (ur)
 ```
 
 ## Known v0 shortcuts
@@ -149,7 +152,10 @@ supabase/
 - **No auth.** The client says who the sender is. Fine for a demo, not for real use.
   Next step: Supabase Auth, then check the user on the server instead of trusting `senderId`.
 - **Tables are locked to the server.** RLS is on with no policies, so the public key can read nothing.
-- **Read aloud for text** uses the browser's built-in speech engine. Hindi voice quality depends on the OS.
+- **Read aloud for text** uses the browser's built-in speech engine when the OS has a voice for
+  the language, and falls back to server TTS (`POST /api/speech`) when it doesn't. macOS ships a
+  Hindi voice but no Urdu one, so Urdu goes through the server: a second of latency and one API
+  call per new phrase, cached per phrase in the tab. Local-voice quality still depends on the OS.
 - **Voice cloning** is out of scope for v0.
 
 ## Next (v1)

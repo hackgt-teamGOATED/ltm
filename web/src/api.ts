@@ -34,6 +34,20 @@ export const api = {
       body: JSON.stringify({ senderId, text }),
     }).then((r) => json<Message>(r)),
 
+  // Server-side text-to-speech, used only when the browser has no voice for the language.
+  speech: async (text: string, language: string) => {
+    const res = await fetch(`${API_URL}/api/speech`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, language }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error ?? `Request failed (${res.status})`);
+    }
+    return res.blob();
+  },
+
   sendVoice: (threadId: string, senderId: string, audio: Blob) => {
     const form = new FormData();
     form.append('senderId', senderId); // text fields before the file so the server sees them
