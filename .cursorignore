@@ -1,0 +1,4 @@
+# Keep secrets out of Cursor's AI context (real keys live outside the repo anyway).
+.env
+**/.env
+**/.env.local

@@ -10,26 +10,12 @@ dist/
 !.env.example
 !**/.env.example
 
-# AI coding-assistant files (Claude Code, Cursor, Copilot, etc.)
-.claude/
-CLAUDE.md
-CLAUDE.local.md
-CLAUDE*.md
-AGENTS.md
-AGENTS*.md
-GEMINI.md
+# Personal assistant state (shared rules like AGENTS.md, CLAUDE.md and .claude/ stay tracked)
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+*.local.md
 .cursor/
-.cursorignore
-.cursorrules
-.cursorindexingignore
-.github/copilot-instructions.md
-.aider*
-.windsurf/
-.windsurfrules
-.codex/
-.continue/
-.clinerules
-.roo/
-.mcp.json
-scripts copy/claude/
-scripts/claude/
+
+# Local Finder duplicates
+* copy.md
+scripts copy/
