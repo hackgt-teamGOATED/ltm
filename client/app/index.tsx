@@ -39,7 +39,7 @@ export default function PersonaPicker() {
             <Avatar id={c.id} name={c.name} size={72} />
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{c.name}</Text>
-              <Text style={styles.blurb}>{c.blurb}</Text>
+              <Text style={[styles.blurb, c.language === 'ur' && styles.urdu]}>{c.blurb}</Text>
             </View>
           </Pressable>
         ))}
@@ -64,6 +64,7 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 20, fontFamily: fonts.semibold, color: colors.textPrimary },
   blurb: { marginTop: 2, fontSize: 15, fontFamily: fonts.regular, color: colors.textSecondary },
+  urdu: { fontFamily: fonts.urdu, lineHeight: 30, writingDirection: 'rtl', textAlign: 'left' },
   foot: {
     marginTop: 'auto',
     marginBottom: 24,
