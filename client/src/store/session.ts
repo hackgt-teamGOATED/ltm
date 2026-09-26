@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import type { Profile } from '../api/types';
 import { castBySlug } from '../lib/cast';
@@ -23,11 +24,16 @@ export const useSession = create<SessionState>((set) => ({
   setProfiles: (profiles) => set({ profiles }),
 }));
 
-/** The signed-in persona as a full profile (falls back to the cast table before profiles load). */
+/**
+ * The signed-in persona as a full profile (falls back to the cast table before profiles load).
+ * Memoized: a new object every render would re-trigger every effect that depends on it.
+ */
 export function useMe(): Profile | null {
   const as = useSession((s) => s.as);
   const profiles = useSession((s) => s.profiles);
-  const c = castBySlug(as);
-  if (!c) return null;
-  return profiles.find((p) => p.id === c.id) ?? { id: c.id, displayName: c.name, language: c.language };
+  return useMemo(() => {
+    const c = castBySlug(as);
+    if (!c) return null;
+    return profiles.find((p) => p.id === c.id) ?? { id: c.id, displayName: c.name, language: c.language };
+  }, [as, profiles]);
 }

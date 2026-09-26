@@ -219,4 +219,16 @@ test('safeErr logs name/code/status only', async () => {
   const err = Object.assign(new Error('user said: ZQXJ-private-marker'), { code: 'rate_limit', status: 429 });
   assert.equal(safeErr(err), 'Error code=rate_limit status=429');
   assert.equal(safeErr('boom'), 'string');
+// ---- CORS origins (PR #3 review #8) ----
+
+test('originAllowed: listed origins always; private-network origins only in dev', async () => {
+  const { originAllowed } = await import('../origins.js');
+  const listed = ['http://localhost:8081'];
+  assert.equal(originAllowed(undefined, listed, true), true);
+  assert.equal(originAllowed('http://localhost:8081', listed, true), true);
+  assert.equal(originAllowed('http://192.168.1.20:8081', listed, true), false);
+  assert.equal(originAllowed('http://192.168.1.20:8081', listed, false), true);
+  assert.equal(originAllowed('http://172.20.3.4:8081', listed, false), true);
+  assert.equal(originAllowed('https://evil.example.com', listed, false), false);
+  assert.equal(originAllowed('not a url', listed, false), false);
 });

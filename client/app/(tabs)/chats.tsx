@@ -6,7 +6,7 @@ import { Avatar } from '../../src/components/Avatar';
 import { castById, LANGUAGE_NAMES } from '../../src/lib/cast';
 import { preview, shortTime } from '../../src/lib/format';
 import { useMe } from '../../src/store/session';
-import { useThreads } from '../../src/store/threads';
+import { subscribeThreadList, useThreads } from '../../src/store/threads';
 import { colors, fonts } from '../../src/theme/tokens';
 
 export default function Chats() {
@@ -19,22 +19,29 @@ export default function Chats() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
+  const meId = me?.id;
   const refresh = useCallback(async () => {
-    if (!me) return;
+    if (!meId) return;
     setRefreshing(true);
     try {
-      await loadThreads(me.id);
+      await loadThreads(meId);
       setError(null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setRefreshing(false);
     }
-  }, [me, loadThreads]);
+  }, [meId, loadThreads]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const threadKey = threads.map((t) => t.id).join(',');
+  useEffect(() => {
+    if (!meId || !threadKey) return;
+    return subscribeThreadList(threadKey.split(','), meId);
+  }, [meId, threadKey]);
 
   if (!me) return null;
 

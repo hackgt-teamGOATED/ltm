@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, type TextStyle, View } from 'react-native';
 import type { Message } from '../api/types';
 import { isRtl } from '../lib/cast';
+import { textFor } from '../lib/format';
 import { colors, fonts, radius, space } from '../theme/tokens';
 
 export interface GroupPos {
@@ -59,12 +60,13 @@ export function Bubble({ mine, pos, children, heirloom, footer }: BubbleProps) {
 /** Plain (no Heirloom) rendering: sent shows what I wrote; received shows my translation, original on request. */
 export function plainText(m: Message, viewerLang: string, mine: boolean) {
   const original = m.originalText ?? '';
-  const translation = m.translations.find((t) => t.language === viewerLang)?.text ?? null;
-  if (mine || m.originalLanguage === viewerLang) return { main: original, mainLang: m.originalLanguage, secondary: null };
+  if (mine) return { main: original, mainLang: m.originalLanguage, secondary: null };
+  const main = textFor(m, viewerLang);
+  const translated = m.originalLanguage !== viewerLang && main !== original;
   return {
-    main: translation ?? original,
-    mainLang: translation ? viewerLang : m.originalLanguage,
-    secondary: translation ? original : null,
+    main,
+    mainLang: translated ? viewerLang : m.originalLanguage,
+    secondary: translated ? original : null,
   };
 }
 

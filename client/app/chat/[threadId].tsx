@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../src/api/rest';
@@ -36,13 +36,24 @@ export default function Conversation() {
   const thread = useThreads((s) => s.threads.find((t) => t.id === threadId));
   const messages = useThreads((s) => s.messages[threadId] ?? EMPTY);
   const loadThread = useThreads((s) => s.loadThread);
+  const loadThreads = useThreads((s) => s.loadThreads);
   const upsertMessage = useThreads((s) => s.upsertMessage);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const meId = me?.id;
+  const meLang = me?.language;
 
   useEffect(() => {
-    if (!me || !threadId) return;
-    void loadThread(threadId, me.id, me.language).catch(() => {});
-    return subscribeThread(threadId, me.id, me.language);
-  }, [threadId, me, loadThread]);
+    if (!meId || !meLang || !threadId) return;
+    setLoadError(null);
+    loadThread(threadId, meId, meLang).catch((e) => setLoadError((e as Error).message));
+    return subscribeThread(threadId, meId, meLang);
+  }, [threadId, meId, meLang, loadThread]);
+
+  // Deep link or reload straight into a chat: the thread list (and so the header) isn't loaded yet.
+  const haveThread = Boolean(thread);
+  useEffect(() => {
+    if (meId && !haveThread) loadThreads(meId).catch(() => {});
+  }, [meId, haveThread, loadThreads]);
 
   const positions = useMemo(() => groupPositions(messages), [messages]);
   const reversed = useMemo(() => [...messages].reverse(), [messages]);
@@ -82,6 +93,7 @@ export default function Conversation() {
           <Text style={styles.active}>Active now</Text>
         </View>
       </View>
+      {loadError && <Text style={styles.error}>Couldn't load this chat: {loadError}</Text>}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <FlatList
           inverted
@@ -116,4 +128,5 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 16, fontFamily: fonts.semibold, color: colors.textPrimary },
   active: { fontSize: 12, fontFamily: fonts.regular, color: colors.textSecondary },
+  error: { padding: 12, color: colors.danger, fontFamily: fonts.regular },
 });

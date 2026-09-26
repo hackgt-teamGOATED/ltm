@@ -16,7 +16,9 @@ interface ThreadsState {
   setSettings: (threadId: string, s: ThreadSettings) => void;
 }
 
-export const useThreads = create<ThreadsState>((set, get) => ({
+const OFF: ThreadSettings = { learningEnabled: false, learningLang: null };
+
+export const useThreads = create<ThreadsState>((set) => ({
   threads: [],
   messages: {},
   analyses: {},
@@ -25,22 +27,20 @@ export const useThreads = create<ThreadsState>((set, get) => ({
   loadThreads: async (profileId) => {
     const threads = await api.threads(profileId);
     set({ threads });
-    // Previews and ✦ chips for the chat list.
+    // Previews and ✦ chips for the chat list. Always refetched, so pull-to-refresh is never stale.
     await Promise.all(
       threads.map(async (t) => {
-        const [msgs, s] = await Promise.all([
-          get().messages[t.id] ? Promise.resolve(get().messages[t.id]) : api.messages(t.id),
-          api.settings(t.id, profileId).catch(() => ({ learningEnabled: false, learningLang: null })),
-        ]);
+        const [msgs, s] = await Promise.all([api.messages(t.id), api.settings(t.id, profileId).catch(() => OFF)]);
         set((st) => ({ messages: { ...st.messages, [t.id]: msgs }, settings: { ...st.settings, [t.id]: s } }));
       }),
     );
   },
 
   loadThread: async (threadId, profileId, viewerLang) => {
+    // Settings and analyses are optional: if the learning layer is down, the chat still loads.
     const [msgs, s, analyses] = await Promise.all([
       api.messages(threadId),
-      api.settings(threadId, profileId),
+      api.settings(threadId, profileId).catch(() => OFF),
       api.analyses(threadId, viewerLang).catch(() => [] as MessageAnalysis[]),
     ]);
     set((st) => ({
@@ -54,6 +54,8 @@ export const useThreads = create<ThreadsState>((set, get) => ({
     set((st) => {
       const list = st.messages[m.threadId] ?? [];
       const idx = list.findIndex((x) => x.id === m.id);
+      // Never downgrade: a late 202 response ('processing') must not overwrite a socket update that finished it.
+      if (idx !== -1 && list[idx].status !== 'processing' && m.status === 'processing') return st;
       const next = idx === -1 ? [...list, m] : list.map((x) => (x.id === m.id ? m : x));
       return { messages: { ...st.messages, [m.threadId]: next } };
     }),
@@ -63,6 +65,25 @@ export const useThreads = create<ThreadsState>((set, get) => ({
 
   setSettings: (threadId, s) => set((st) => ({ settings: { ...st.settings, [threadId]: s } })),
 }));
+
+/** Live previews for the chat list: joins every listed thread's room. Returns an unsubscribe function. */
+export function subscribeThreadList(threadIds: string[], profileId: string) {
+  const socket = getSocket(profileId);
+  const { upsertMessage } = useThreads.getState();
+  const join = () => {
+    for (const id of threadIds) socket.emit('thread:join', id);
+  };
+  const onMsg = (m: Message) => threadIds.includes(m.threadId) && upsertMessage(m);
+  join();
+  socket.on('connect', join);
+  socket.on('message:new', onMsg);
+  socket.on('message:updated', onMsg);
+  return () => {
+    socket.off('connect', join);
+    socket.off('message:new', onMsg);
+    socket.off('message:updated', onMsg);
+  };
+}
 
 /** Live updates for one open conversation. Returns an unsubscribe function. */
 export function subscribeThread(threadId: string, profileId: string, viewerLang: string) {
@@ -81,8 +102,8 @@ export function subscribeThread(threadId: string, profileId: string, viewerLang:
   socket.on('message:new', onMsg);
   socket.on('message:updated', onMsg);
   socket.on('analysis:ready', onAnalysis);
+  // No thread:leave: the chat list shares this room for its live previews.
   return () => {
-    socket.emit('thread:leave', threadId);
     socket.off('connect', join);
     socket.off('message:new', onMsg);
     socket.off('message:updated', onMsg);

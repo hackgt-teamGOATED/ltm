@@ -17,20 +17,25 @@ export function BottomSheetHost() {
   const [shown, setShown] = useState<ReactNode | null>(null);
   const y = useSharedValue(height);
   const fade = useSharedValue(0);
+  const isOpen = content !== null;
+
+  // Swap content in place; only animate when the sheet opens or closes.
+  useEffect(() => {
+    if (content) setShown(content);
+  }, [content]);
 
   useEffect(() => {
-    if (content) {
-      setShown(content);
+    if (isOpen) {
       y.value = height;
       y.value = withTiming(0, { duration: DURATION });
       fade.value = withTiming(1, { duration: DURATION });
-    } else if (shown) {
+    } else {
       fade.value = withTiming(0, { duration: DURATION });
       y.value = withTiming(height, { duration: DURATION }, (done) => {
         if (done) runOnJS(setShown)(null);
       });
     }
-  }, [content, height, shown, y, fade]);
+  }, [isOpen, height, y, fade]);
 
   const drag = Gesture.Pan()
     .onUpdate((e) => {
