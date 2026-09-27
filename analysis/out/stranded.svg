@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" font-family="Inter, system-ui, sans-serif">
+<rect width="640" height="360" fill="#FFFFFF"/>
+<text x="16" y="26" font-size="15" font-weight="600" fill="#0B0B0C">Left stranded: the gloss was hidden, the word was gone</text>
+<text x="16" y="44" font-size="11" fill="#65676B">200 simulated learners · seed 20260927 · lower is better</text>
+<rect x="62" y="68" width="3.82" height="34" rx="4" fill="#C9922E" fill-opacity="1"/><text x="62" y="62" font-size="12" font-weight="600" fill="#0B0B0C">Heirloom (this model)</text><text x="77.82" y="89" font-size="12" fill="#65676B">0.1%  (10 of 17,529)</text><rect x="62" y="128" width="344.29" height="34" rx="4" fill="#0A7CFF" fill-opacity="0.8"/><text x="62" y="122" font-size="12" font-weight="600" fill="#0B0B0C">Counting rule (known after 3 reads)</text><text x="418.29" y="149" font-size="12" fill="#65676B">5.1%  (1,101 of 21,426)</text><rect x="62" y="188" width="0" height="34" rx="4" fill="#65676B" fill-opacity="0.8"/><text x="62" y="182" font-size="12" font-weight="600" fill="#0B0B0C">No fading (always translate)</text><text x="74" y="209" font-size="12" fill="#65676B">never withholds help</text>
+<text x="16" y="344" font-size="11" fill="#65676B">Both testing policies teach about as much. This is what separates them.</text>
+</svg>

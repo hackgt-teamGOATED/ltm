@@ -5,5 +5,6 @@ export * from './model.js';
 export * from './practice.js';
 export * from './render.js';
 export * from './replay.js';
+export * as sim from './sim/index.js';
 export * from './stage.js';
 export type * from './types.js';

@@ -1,0 +1,84 @@
+{
+  "ranAt": "2026-09-27T02:10:12.455Z",
+  "config": {
+    "learners": 200,
+    "seed": 20260927,
+    "vocabulary": 120,
+    "start": 1783296000000
+  },
+  "finalWeekReadableShare": {
+    "heirloom": 0.44562500000000027,
+    "no-fade": 0.39708333333333323,
+    "count-3": 0.44625
+  },
+  "wordsKnownAtWeek8": {
+    "heirloom": 37.62,
+    "no-fade": 34.01,
+    "count-3": 37.69
+  },
+  "calibration": [
+    {
+      "predicted": 0.35,
+      "actual": 0.54276178556529,
+      "n": 2397
+    },
+    {
+      "predicted": 0.45,
+      "actual": 0.542752068648483,
+      "n": 3263
+    },
+    {
+      "predicted": 0.55,
+      "actual": 0.6170900692840646,
+      "n": 4330
+    },
+    {
+      "predicted": 0.65,
+      "actual": 0.7197817973011772,
+      "n": 3483
+    },
+    {
+      "predicted": 0.75,
+      "actual": 0.7508744656043529,
+      "n": 2573
+    },
+    {
+      "predicted": 0.85,
+      "actual": 0.8876961189099918,
+      "n": 2422
+    },
+    {
+      "predicted": 0.95,
+      "actual": 0.9881339494551885,
+      "n": 17529
+    }
+  ],
+  "decisions": {
+    "heirloom": {
+      "unhelped": 17529,
+      "stranded": 10,
+      "strandedRate": 0.0005704831992697815,
+      "helped": 96363,
+      "wasted": 14704,
+      "wastedRate": 0.1525896869130268
+    },
+    "no-fade": {
+      "unhelped": 0,
+      "stranded": 0,
+      "strandedRate": 0,
+      "helped": 132360,
+      "wasted": 41203,
+      "wastedRate": 0.3112949531580538
+    },
+    "count-3": {
+      "unhelped": 21426,
+      "stranded": 1101,
+      "strandedRate": 0.05138616633996079,
+      "helped": 75681,
+      "wasted": 13597,
+      "wastedRate": 0.17966200235197738
+    }
+  },
+  "meanAbsoluteCalibrationError": 0.05723393616134678,
+  "predictions": 35997
+}
