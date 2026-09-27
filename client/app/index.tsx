@@ -3,9 +3,10 @@ import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../src/components/Avatar';
-import { CAST, castBySlug } from '../src/lib/cast';
+import { Ionicons } from '@expo/vector-icons';
+import { CAST, castBySlug, LANGUAGE_NAMES, NATIVE_NAMES } from '../src/lib/cast';
 import { useSession } from '../src/store/session';
-import { colors, fonts } from '../src/theme/tokens';
+import { colors, fonts, PRESSED_OPACITY, radius, type } from '../src/theme/tokens';
 
 // Persona picker ("Who are you?"). `?as=arjun` picks directly, so each iPhone keeps its identity.
 export default function PersonaPicker() {
@@ -23,53 +24,54 @@ export default function PersonaPicker() {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <Text style={styles.brand}>✦ Heirloom</Text>
-      <Text style={styles.title}>Who are you?</Text>
+      <View style={styles.hero}>
+        <Text style={styles.brand}>✦ Heirloom</Text>
+        <Text style={styles.tagline}>Translation that fades.{'\n'}Fluency that stays.</Text>
+      </View>
+      <Text style={styles.prompt}>Who are you?</Text>
       <View style={styles.list}>
         {CAST.map((c) => (
           <Pressable
             key={c.slug}
             accessibilityRole="button"
-            style={({ pressed }) => [styles.person, pressed && { opacity: 0.6 }]}
+            accessibilityLabel={`${c.name}, ${LANGUAGE_NAMES[c.language] ?? c.language}`}
+            style={({ pressed }) => [styles.person, pressed && { opacity: PRESSED_OPACITY }]}
             onPress={() => {
               setAs(c.slug);
               router.replace('/chats');
             }}
           >
-            <Avatar id={c.id} name={c.name} size={72} />
+            <Avatar id={c.id} name={c.name} size={64} />
             <View style={{ flex: 1 }}>
               <Text style={styles.name}>{c.name}</Text>
-              <Text style={[styles.blurb, c.language === 'ur' && styles.urdu]}>{c.blurb}</Text>
+              <Text style={[styles.language, c.language === 'ur' && styles.urdu]}>{NATIVE_NAMES[c.language] ?? c.language}</Text>
             </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
           </Pressable>
         ))}
       </View>
-      <Text style={styles.foot}>Translation that fades. Fluency that stays.</Text>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, paddingHorizontal: 24 },
-  brand: { marginTop: 32, color: colors.heirloom, fontFamily: fonts.semibold, fontSize: 18 },
-  title: { marginTop: 8, fontSize: 32, fontFamily: fonts.semibold, color: colors.textPrimary },
-  list: { marginTop: 32, gap: 16 },
+  hero: { marginTop: 32, gap: 12 },
+  brand: { color: colors.heirloom, fontFamily: fonts.semibold, fontSize: type.title, letterSpacing: type.headingSpacing },
+  tagline: { fontSize: type.display, lineHeight: 34, fontFamily: fonts.semibold, letterSpacing: type.headingSpacing, color: colors.textPrimary },
+  prompt: { marginTop: 32, fontSize: type.meta, fontFamily: fonts.medium, color: colors.textSecondary },
+  list: { marginTop: 12, gap: 12 },
   person: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
     padding: 16,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.background,
   },
-  name: { fontSize: 20, fontFamily: fonts.semibold, color: colors.textPrimary },
-  blurb: { marginTop: 2, fontSize: 15, fontFamily: fonts.regular, color: colors.textSecondary },
+  name: { fontSize: type.title, fontFamily: fonts.semibold, letterSpacing: type.headingSpacing, color: colors.textPrimary },
+  language: { marginTop: 4, fontSize: type.secondary, fontFamily: fonts.regular, color: colors.textSecondary },
   urdu: { fontFamily: fonts.urdu, lineHeight: 30, writingDirection: 'rtl', textAlign: 'left' },
-  foot: {
-    marginTop: 'auto',
-    marginBottom: 24,
-    textAlign: 'center',
-    color: colors.textSecondary,
-    fontFamily: fonts.regular,
-  },
 });
