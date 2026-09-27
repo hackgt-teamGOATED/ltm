@@ -94,6 +94,8 @@ export function HeirloomMessage(props: Props) {
   const lang = m.originalLanguage as Lang;
   const ctx = { messageId: m.id, threadId: m.threadId, lang };
   const log = (events: Parameters<typeof logEvents>[1]) => !readOnly && logEvents(profileId, events);
+  // Replay (the demo slider) and the fixtures page render only: they must not touch read state either.
+  const tap = (messageId: string, lemma: string) => !readOnly && markTap(messageId, lemma);
   const selected = selection?.tokenIndex ?? null;
   // While guessing, highlighting the matching translation words would give the answer away.
   const guessing = Boolean(selection?.guess) && answered !== `${selection?.messageId}:${selection?.tokenIndex}`;
@@ -105,7 +107,7 @@ export function HeirloomMessage(props: Props) {
     if (selected === i) return select(null);
     if (p.challenge && !readOnly) return select({ messageId: m.id, tokenIndex: i, guess: true });
     log([{ ...ctx, lemma: t.lemma, form: t.surface.toLowerCase(), type: tapEventType(p.status), at: Date.now() }]);
-    markTap(m.id, t.lemma);
+    tap(m.id, t.lemma);
     select({ messageId: m.id, tokenIndex: i });
   };
   const tapTranslation = (i: number) => {
@@ -118,7 +120,7 @@ export function HeirloomMessage(props: Props) {
   const revealTranslation = () => {
     if (showTranslation) return setShowTranslation(false);
     log(showTranslationEvents(analysis.tokens, plan, { ...ctx, at: Date.now() }));
-    markTap(m.id, '');
+    tap(m.id, '');
     setShowTranslation(true);
   };
 
@@ -192,7 +194,7 @@ export function HeirloomMessage(props: Props) {
                               at: Date.now(),
                             },
                           ]);
-                          markTap(m.id, t.lemma);
+                          tap(m.id, t.lemma);
                           setAnswered(`${m.id}:${selection.tokenIndex}`);
                         },
                       }
@@ -260,7 +262,7 @@ function KnowThisNow() {
 }
 
 const styles = StyleSheet.create({
-  divider: { height: 1, marginVertical: 6, backgroundColor: 'rgba(0,0,0,0.08)' },
+  divider: { height: 1, marginVertical: 6, backgroundColor: colors.divider },
   secondary: { fontSize: 14, color: '#3A3B3C' },
   toggle: { marginTop: 6, fontSize: 12, fontFamily: fonts.semibold, color: colors.heirloom },
   pending: { marginLeft: 16, marginTop: 2, fontSize: 11, fontFamily: fonts.medium, color: colors.heirloom },
@@ -274,5 +276,5 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: colors.heirloom,
   },
-  pillText: { color: '#fff', fontSize: 12, fontFamily: fonts.semibold },
+  pillText: { color: colors.textOnSent, fontSize: 12, fontFamily: fonts.semibold },
 });

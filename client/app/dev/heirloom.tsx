@@ -1,5 +1,5 @@
 // Dev-only fixtures page: the Heirloom layer on sample data, no backend needed.
-// Built only with EXPO_PUBLIC_DEV_FIXTURES=1; otherwise it redirects home. `?select=<token index>` opens a card.
+// Dev builds only; a production export redirects home. `?select=<token index>` opens a card.
 import type { Stage } from '@heirloom/learner';
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo } from 'react';
@@ -11,7 +11,8 @@ import { esAnalysis, esMessage, fixtureMastery, urAnalysis, urMessage } from '..
 import { useSelection } from '../../src/store/selection';
 import { colors, fonts } from '../../src/theme/tokens';
 
-const ENABLED = process.env.EXPO_PUBLIC_DEV_FIXTURES === '1';
+// __DEV__ is false in `expo export`, so this page never ships. AGENTS.md rule 2 keeps EXPO_PUBLIC_* to the API URL.
+const ENABLED = __DEV__;
 const POOL = ['hot', 'rain', 'hunger', 'love', 'today', 'cold', 'soup'];
 
 export default function HeirloomFixtures() {
