@@ -4,6 +4,8 @@ import cors from 'cors';
 import { Server } from 'socket.io';
 import { env } from './env.js';
 import { buildRouter } from './routes.js';
+import { buildLearningRouter } from './learning/routes.js';
+import { safeErr } from './logSafe.js';
 import { HttpError } from './messages.js';
 
 const origins = env.WEB_ORIGIN.split(',').map((o) => o.trim());
@@ -16,7 +18,13 @@ const httpServer = createServer(app);
 const io = new Server(httpServer, { cors: { origin: origins } });
 
 // Each open chat joins its thread's room; the server pushes new/updated messages there.
+// Each profile also has a room for its own mastery updates (`mastery:updated`).
 io.on('connection', (socket) => {
+  const profileId = socket.handshake.query.profileId;
+  if (typeof profileId === 'string' && profileId) socket.join(`profile:${profileId}`);
+  socket.on('profile:join', (id: unknown) => {
+    if (typeof id === 'string') socket.join(`profile:${id}`);
+  });
   socket.on('thread:join', (threadId: unknown) => {
     if (typeof threadId === 'string') socket.join(`thread:${threadId}`);
   });
@@ -26,10 +34,11 @@ io.on('connection', (socket) => {
 });
 
 app.use('/api', buildRouter(io));
+app.use('/api', buildLearningRouter(io));
 
-app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
   if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
-  console.error(err);
+  console.error(`[${req.method} ${req.path}] ${safeErr(err)}`);
   res.status(500).json({ error: err instanceof Error ? err.message : 'Server error' });
 });
 

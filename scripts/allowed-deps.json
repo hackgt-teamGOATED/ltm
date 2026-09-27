@@ -1,0 +1,63 @@
+{
+  "_comment": "Approved dependencies per workspace (PLAN.md \u00a73). Adding one needs human approval (name, size, why the list can't do it) and a line in docs/DECISIONS.md. Expo-managed packages must be installed with `npx expo install` so versions match SDK 57.",
+  "patterns": [
+    "@types/*"
+  ],
+  ".": [
+    "concurrently",
+    "@biomejs/biome"
+  ],
+  "packages/learner": [
+    "typescript"
+  ],
+  "server": [
+    "express",
+    "cors",
+    "socket.io",
+    "@supabase/supabase-js",
+    "openai",
+    "multer",
+    "dotenv",
+    "typescript",
+    "tsx",
+    "@heirloom/learner"
+  ],
+  "web": [
+    "react",
+    "react-dom",
+    "socket.io-client",
+    "vite",
+    "@vitejs/plugin-react",
+    "typescript"
+  ],
+  "client": [
+    "expo",
+    "expo-router",
+    "expo-audio",
+    "expo-font",
+    "expo-image",
+    "expo-linear-gradient",
+    "expo-status-bar",
+    "expo-constants",
+    "expo-linking",
+    "react",
+    "react-dom",
+    "react-native",
+    "react-native-web",
+    "@expo/metro-runtime",
+    "react-native-screens",
+    "react-native-safe-area-context",
+    "react-native-reanimated",
+    "react-native-worklets",
+    "react-native-gesture-handler",
+    "react-native-svg",
+    "@expo/vector-icons",
+    "@expo-google-fonts/inter",
+    "@expo-google-fonts/noto-nastaliq-urdu",
+    "@expo-google-fonts/noto-sans-devanagari",
+    "zustand",
+    "socket.io-client",
+    "@heirloom/learner",
+    "typescript"
+  ]
+}

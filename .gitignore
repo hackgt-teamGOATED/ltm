@@ -1,10 +1,21 @@
 node_modules/
 dist/
-.env
-.env.*
-!.env.example
 .DS_Store
 
-# Personal Claude Code settings
+# Env files and secrets (examples stay tracked)
+.env
+.env.*
+*.env
+.envrc
+!.env.example
+!**/.env.example
+
+# Personal assistant state (shared rules like AGENTS.md, CLAUDE.md and .claude/ stay tracked)
 .claude/settings.local.json
-CLAUDE.local.md
+.claude/scheduled_tasks.lock
+*.local.md
+.cursor/
+
+# Local Finder duplicates
+* copy.md
+scripts copy/

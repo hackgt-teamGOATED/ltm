@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { Server } from 'socket.io';
-import { supabase } from './supabase.js';
+import { HttpError } from './http.js';
+import { safeErr } from './logSafe.js';
+import { must, supabase } from './supabase.js';
 import { env } from './env.js';
 import { synthesize, transcribe, translate } from './ai.js';
+import { analyzeForViewers } from './learning/analyze.js';
 
 // ---------- types ----------
 
@@ -24,18 +27,9 @@ type MessageRow = {
 
 export type Profile = { id: string; displayName: string; language: string };
 
-export class HttpError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-  }
-}
+export { HttpError };
 
 // ---------- helpers ----------
-
-function must<T>(res: { data: unknown; error: { message: string } | null }): T {
-  if (res.error) throw new Error(res.error.message);
-  return res.data as T;
-}
 
 const toProfile = (p: ProfileRow): Profile => ({ id: p.id, displayName: p.display_name, language: p.language });
 
@@ -108,6 +102,8 @@ async function resolveThread(threadId: string, senderId: string) {
 async function finish(io: Server, row: MessageRow, status: 'ready' | 'failed') {
   await supabase.from('messages').update({ status }).eq('id', row.id);
   io.to(room(row.thread_id)).emit('message:updated', await loadMessage(row.id));
+  // Learning layer: annotate for members learning this language. Never blocks text or audio.
+  if (status === 'ready') void analyzeForViewers(io, row.id);
 }
 
 // ---------- reads ----------
@@ -192,7 +188,7 @@ async function processText(io: Server, row: MessageRow, targets: string[]) {
     if (translations.length) must(await supabase.from('message_translations').insert(translations));
     await finish(io, row, 'ready');
   } catch (err) {
-    console.error(`[text ${row.id}]`, err);
+    console.error(`[text ${row.id}] ${safeErr(err)}`);
     await finish(io, row, 'failed');
   }
 }
@@ -280,7 +276,7 @@ async function processVoice(
     if (translations.length) must(await supabase.from('message_translations').insert(translations));
     await finish(io, row, 'ready');
   } catch (err) {
-    console.error(`[voice ${row.id}]`, err);
+    console.error(`[voice ${row.id}] ${safeErr(err)}`);
     await finish(io, row, 'failed');
   }
 }
