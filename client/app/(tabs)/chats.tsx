@@ -105,11 +105,11 @@ export default function Chats() {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
           refreshing ? (
-            <>
+            <View>
               <SkeletonRow />
               <SkeletonRow />
               <SkeletonRow />
-            </>
+            </View>
           ) : (
             <View style={styles.emptyWrap}>
               <Text style={styles.empty}>No conversations yet.</Text>

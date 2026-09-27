@@ -244,7 +244,7 @@ function KnowThisNow() {
   }, [o, y]);
   const style = useAnimatedStyle(() => ({ opacity: o.value, transform: [{ translateY: y.value }] }));
   return (
-    <Animated.View style={[styles.pill, style]} pointerEvents="none">
+    <Animated.View style={[styles.pill, style, { pointerEvents: 'none' }]}>
       <Text style={styles.pillText}>✦ You know this now</Text>
     </Animated.View>
   );

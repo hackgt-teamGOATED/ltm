@@ -51,7 +51,7 @@ export function BottomSheetHost() {
 
   if (!shown) return null;
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: 'box-none' }]}>
       <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close" />
       </Animated.View>

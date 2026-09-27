@@ -42,12 +42,7 @@ export const type = {
 export const tabular: { fontVariant: ('tabular-nums')[] } = { fontVariant: ['tabular-nums'] };
 
 /** The one soft shadow, for floating cards and sheets. Everything else uses hairlines. */
-export const shadow = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 8 },
-  shadowOpacity: 0.08,
-  shadowRadius: 24,
-} as const;
+export const shadow = { boxShadow: '0px 8px 24px rgba(0,0,0,0.08)' } as const;
 
 /** Every tappable dims to this while pressed. */
 export const PRESSED_OPACITY = 0.7;
