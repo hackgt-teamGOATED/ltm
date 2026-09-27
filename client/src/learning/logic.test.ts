@@ -2,7 +2,7 @@
 // Run: npm test -w client (Node's built-in runner; Node 23+ runs TypeScript directly).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { applyEvents, DAY_MS, type LearningEvent, type Stage, type TokenPlan } from '@heirloom/learner';
+import { applyEvents, DAY_MS, type LearningEvent, replay, type Stage, type TokenPlan } from '@heirloom/learner';
 import type { Message, MessageAnalysis } from '../api/types.ts';
 import {
   annotatableIds,
@@ -13,6 +13,8 @@ import {
   mergeAnalyses,
   newlyMastered,
   showTranslationEvents,
+  WEEK_MS,
+  weekBuckets,
   tapEventType,
   viewEvents,
   voiceSource,
@@ -171,4 +173,53 @@ test('newlyMastered + isStageUp', () => {
   assert.equal(isStageUp('listener', 'reader'), true);
   assert.equal(isStageUp('reader', 'reader'), false);
   assert.equal(isStageUp(undefined, 'reader'), false);
+});
+
+// ---- Phase 7: time travel ----
+
+const evAt = (at: number, lemma = 'a', lang: 'es' | 'ur' = 'es'): LearningEvent => ({ lemma, lang, type: 'read_unaided', at });
+
+test('weekBuckets: one cut-off per week, last one covers the final event', () => {
+  const start = NOW - 8 * WEEK_MS;
+  // 9 events one week apart span exactly 8 weeks end to end.
+  const events = Array.from({ length: 9 }, (_, i) => evAt(start + i * WEEK_MS));
+  const weeks = weekBuckets(events);
+  assert.equal(weeks.length, 8);
+  assert.ok(weeks.every((w, i) => i === 0 || w > weeks[i - 1]), 'strictly increasing');
+  assert.equal(weeks.at(-1), Math.max(...events.map((e) => e.at)), 'last week includes every event');
+});
+
+test('weekBuckets: empty log, single event, and a log longer than the cap', () => {
+  assert.deepEqual(weekBuckets([]), []);
+  assert.deepEqual(weekBuckets([evAt(NOW)]), [NOW]);
+  const long = Array.from({ length: 30 }, (_, i) => evAt(NOW - (29 - i) * WEEK_MS));
+  assert.equal(weekBuckets(long).length, 8, 'never more steps than the cap');
+});
+
+test('replay at each week cut-off never loses ground: mastery only grows across the arc', () => {
+  const start = NOW - 8 * WEEK_MS;
+  const events: LearningEvent[] = [];
+  // One word introduced per week, each reinforced on two later days so it can actually reach mastery.
+  for (let w = 0; w < 8; w++) {
+    const lemma = `w${w}`;
+    events.push(evAt(start + w * WEEK_MS, lemma));
+    events.push({ lemma, lang: 'es', type: 'guess_correct', at: start + w * WEEK_MS + 2 * DAY_MS, options: 4 });
+    events.push({ lemma, lang: 'es', type: 'guess_correct', at: start + w * WEEK_MS + 5 * DAY_MS, options: 4 });
+  }
+  const weeks = weekBuckets(events);
+  const seen = weeks.map((until) => Object.keys(replay(events, until, 'es')).length);
+  assert.ok(seen.every((n, i) => i === 0 || n >= seen[i - 1]), `tracked words never shrink: ${seen}`);
+  assert.ok(seen.at(-1)! > seen[0], 'the arc actually moves');
+});
+
+test('replay is scoped by language: Urdu events never enter the Spanish snapshot', () => {
+  const events = [evAt(NOW - WEEK_MS, 'hola', 'es'), evAt(NOW - WEEK_MS, 'salaam', 'ur')];
+  assert.deepEqual(Object.keys(replay(events, NOW, 'es')), ['hola']);
+  assert.deepEqual(Object.keys(replay(events, NOW, 'ur')), ['salaam']);
+});
+
+test('replay ignores everything after the cut-off', () => {
+  const events = [evAt(NOW - 2 * WEEK_MS, 'early'), evAt(NOW - 1, 'late')];
+  assert.deepEqual(Object.keys(replay(events, NOW - WEEK_MS, 'es')), ['early']);
+  assert.equal(Object.keys(replay(events, NOW, 'es')).length, 2);
 });
