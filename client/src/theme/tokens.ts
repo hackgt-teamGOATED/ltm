@@ -11,6 +11,8 @@ export const colors = {
   surface: '#F5F6F8',
   heirloom: '#C9922E',
   heirloomTint: '#FBF3E4',
+  /** Selected word / matching translation words: must read clearly on the grey received bubble. */
+  heirloomHighlight: '#F5DDA8',
   mastered: '#2E9E6B',
   fading: '#D9822B',
   danger: '#D93025',

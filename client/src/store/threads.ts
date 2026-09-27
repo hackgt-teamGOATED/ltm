@@ -13,6 +13,7 @@ interface ThreadsState {
   loadThread: (threadId: string, profileId: string, viewerLang: string) => Promise<void>;
   upsertMessage: (m: Message) => void;
   setAnalysis: (threadId: string, a: MessageAnalysis) => void;
+  loadAnalyses: (threadId: string, viewerLang: string) => Promise<void>;
   setSettings: (threadId: string, s: ThreadSettings) => void;
 }
 
@@ -59,6 +60,13 @@ export const useThreads = create<ThreadsState>((set) => ({
       const next = idx === -1 ? [...list, m] : list.map((x) => (x.id === m.id ? m : x));
       return { messages: { ...st.messages, [m.threadId]: next } };
     }),
+
+  loadAnalyses: async (threadId, viewerLang) => {
+    const list = await api.analyses(threadId, viewerLang);
+    set((st) => ({
+      analyses: { ...st.analyses, [threadId]: { ...st.analyses[threadId], ...Object.fromEntries(list.map((a) => [a.messageId, a])) } },
+    }));
+  },
 
   setAnalysis: (threadId, a) =>
     set((st) => ({ analyses: { ...st.analyses, [threadId]: { ...st.analyses[threadId], [a.messageId]: a } } })),

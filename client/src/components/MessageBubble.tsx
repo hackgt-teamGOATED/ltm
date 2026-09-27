@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, type TextStyle, View } from 'react-native';
+import { Pressable, StyleSheet, Text, type TextStyle, View } from 'react-native';
 import type { Message } from '../api/types';
 import { isRtl } from '../lib/cast';
 import { textFor } from '../lib/format';
@@ -27,10 +27,12 @@ interface BubbleProps {
   /** Gold border when Heirloom annotates this bubble. */
   heirloom?: boolean;
   footer?: ReactNode;
+  /** Tap on the bubble itself (not on a word). */
+  onPress?: () => void;
 }
 
 /** Bubble shell: gradient when sent, grey when received, 18px radius with a 4px tail corner on the group's last bubble. */
-export function Bubble({ mine, pos, children, heirloom, footer }: BubbleProps) {
+export function Bubble({ mine, pos, children, heirloom, footer, onPress }: BubbleProps) {
   // The sender's side is squared off where bubbles join and at the tail (bottom of the group's last bubble).
   const corners = mine
     ? { borderTopRightRadius: pos.first ? radius.bubble : radius.tail, borderBottomRightRadius: radius.tail }
@@ -44,13 +46,15 @@ export function Bubble({ mine, pos, children, heirloom, footer }: BubbleProps) {
       ]}
     >
       <View style={{ maxWidth: '80%' }}>
-        {mine ? (
-          <LinearGradient colors={[colors.bubbleSentTop, colors.bubbleSentBottom]} style={shape}>
-            {children}
-          </LinearGradient>
-        ) : (
-          <View style={[shape, { backgroundColor: colors.bubbleReceived }]}>{children}</View>
-        )}
+        <Pressable onPress={onPress} disabled={!onPress} accessible={false}>
+          {mine ? (
+            <LinearGradient colors={[colors.bubbleSentTop, colors.bubbleSentBottom]} style={shape}>
+              {children}
+            </LinearGradient>
+          ) : (
+            <View style={[shape, { backgroundColor: colors.bubbleReceived }]}>{children}</View>
+          )}
+        </Pressable>
         {footer}
       </View>
     </View>
