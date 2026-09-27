@@ -1,10 +1,15 @@
-// Demo seed (PLAN.md §9.1): `npm run seed:demo` (add `-- --reset` for a clean demo state).
+// Demo seed (PLAN.md §9.1): `npm run seed:demo`. For a clean demo: `-- --reset` (dry run: prints what it would
+// delete, writes nothing), then `-- --reset --yes` to actually do it.
 // Idempotent and namespaced. Every seeded message id starts with `de300000-` (DEMO_PREFIX) and is derived from
 // the line's content, so reordering the script changes nothing and an edited line becomes a new message. It
 // writes only: settings for the demo cast's two threads, demo-prefixed messages (and their own translations,
 // audio and analyses), Arjun's events on demo-prefixed messages, and Arjun's es/ur mastery (rebuilt from his
-// event log). `--reset` additionally removes Arjun's NON-seeded messages and events in those two threads.
+// event log). `--reset --yes` additionally deletes, in the two demo threads (a2, a4) only:
+//   - every non-seeded message, FROM ANY SENDER (manual testing as Arjun, Abuela or Zara), and
+//   - Arjun's learning events tied to those threads (thread_id in a2/a4) or to those messages.
+// Arjun's events with no thread (none are produced by the app today) and anything in other threads are kept.
 // Stop other writers for Arjun (e.g. a phone using the app) while it runs.
+// TODO: regenerated or stale voice messages leave their old mp3s in storage (fine for the demo).
 import { type Lang, type LearningEvent, type LemmaState, replay, type TokenLike, wordLists } from '@heirloom/learner';
 import { synthesize, transcribe, translate } from '../ai.js';
 import { analyzeOne, type MsgRow } from '../learning/analyze.js';
@@ -101,8 +106,46 @@ async function generate(chat: (typeof CHATS)[number], line: ScriptLine, messageI
   }
 }
 
+/** Non-seeded history `--reset` would delete (see the header for the exact scope). */
+async function nonSeededHistory(threadIds: string[]) {
+  const messages = must<{ id: string }[]>(
+    await supabase
+      .from('messages')
+      .select('id')
+      .in('thread_id', threadIds)
+      .or(`id.lt.${DEMO_MIN},id.gt.${DEMO_MAX}`),
+  ).map((r) => r.id);
+  const events = new Set(
+    must<{ id: string }[]>(
+      await supabase
+        .from('learning_events')
+        .select('id')
+        .eq('profile_id', ARJUN.id)
+        .in('thread_id', threadIds)
+        .or(`message_id.is.null,message_id.lt.${DEMO_MIN},message_id.gt.${DEMO_MAX}`),
+    ).map((r) => r.id),
+  );
+  for (const part of chunks(messages)) {
+    for (const r of must<{ id: string }[]>(
+      await supabase.from('learning_events').select('id').eq('profile_id', ARJUN.id).in('message_id', part),
+    ))
+      events.add(r.id);
+  }
+  return { messages, events: [...events] };
+}
+
 async function main() {
   const reset = process.argv.includes('--reset');
+  const confirmed = process.argv.includes('--yes');
+  if (reset && !confirmed) {
+    const h = await nonSeededHistory(CHATS.map((c) => c.threadId));
+    console.log(
+      `--reset dry run: would delete ${h.messages.length} non-seeded messages (any sender) in the two demo ` +
+        `threads and ${h.events.length} of Arjun's events tied to them. Nothing was written.\n` +
+        'Run again with --reset --yes to seed and delete them.',
+    );
+    return;
+  }
   const started = Date.now();
   const end = started;
   const start = windowStart(end);
@@ -229,34 +272,20 @@ async function main() {
     );
   }
 
-  // 5. Optional reset: Arjun's non-seeded history in the demo threads (manual testing) goes away.
+  // 5. Non-seeded history in the demo threads (manual testing): delete with --reset --yes, else report it.
   const threadIds = CHATS.map((c) => c.threadId);
-  const nonSeeded = must<{ id: string }[]>(
-    await supabase
-      .from('messages')
-      .select('id')
-      .in('thread_id', threadIds)
-      .or(`id.lt.${DEMO_MIN},id.gt.${DEMO_MAX}`),
-  ).map((r) => r.id);
-  const nonSeededEvents = must<{ id: string }[]>(
-    await supabase
-      .from('learning_events')
-      .select('id')
-      .eq('profile_id', ARJUN.id)
-      .in(
-        'lang',
-        CHATS.map((c) => c.other.lang),
-      )
-      .or(`message_id.is.null,message_id.lt.${DEMO_MIN},message_id.gt.${DEMO_MAX}`),
-  ).map((r) => r.id);
-  if (reset) {
-    for (const part of chunks(nonSeededEvents)) must(await supabase.from('learning_events').delete().in('id', part));
-    for (const part of chunks(nonSeeded)) must(await supabase.from('messages').delete().in('id', part));
-    summary.push(`--reset: removed ${nonSeeded.length} non-seeded messages and ${nonSeededEvents.length} non-seeded events`);
-  } else if (nonSeeded.length || nonSeededEvents.length) {
+  const history = await nonSeededHistory(threadIds);
+  if (reset && confirmed) {
+    for (const part of chunks(history.events)) must(await supabase.from('learning_events').delete().in('id', part));
+    for (const part of chunks(history.messages)) must(await supabase.from('messages').delete().in('id', part));
     summary.push(
-      `Note: ${nonSeeded.length} non-seeded messages and ${nonSeededEvents.length} non-seeded events for Arjun are ` +
-        'included (manual testing). Run with --reset for a clean demo.',
+      `--reset: deleted ${history.messages.length} non-seeded messages (any sender) in the demo threads and ` +
+        `${history.events.length} of Arjun's events tied to them`,
+    );
+  } else if (history.messages.length || history.events.length) {
+    summary.push(
+      `Note: ${history.messages.length} non-seeded messages and ${history.events.length} non-seeded Arjun events ` +
+        'in the demo threads are included (manual testing). `-- --reset` shows what a clean demo would delete.',
     );
   }
 
