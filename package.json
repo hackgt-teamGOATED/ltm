@@ -1,6 +1,9 @@
 {
   "name": "heritage-chat",
   "private": true,
+  "engines": {
+    "node": ">=22.18"
+  },
   "workspaces": [
     "packages/learner",
     "server",
@@ -12,7 +15,7 @@
     "dev": "npm run build -w @heirloom/learner && concurrently -n learner,server,client -c magenta,blue,green \"npm run dev -w @heirloom/learner\" \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w @heirloom/learner && npm run build -w server && npm run export:web -w client",
     "typecheck": "npm run build -w @heirloom/learner && npm run typecheck -w @heirloom/learner && npm run typecheck -w server && npm run typecheck -w web && npm run typecheck -w client",
-    "test": "npm test -w @heirloom/learner && npm test -w server",
+    "test": "npm test -w @heirloom/learner && npm test -w server && npm test -w client",
     "lint": "biome lint && node scripts/check-boundaries.mjs && node scripts/check-deps.mjs",
     "format": "biome format --write",
     "check": "npm run lint && npm run typecheck && npm test",

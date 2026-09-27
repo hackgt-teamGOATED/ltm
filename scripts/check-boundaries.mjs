@@ -65,7 +65,7 @@ for (const d of CLIENT_DIRS) {
     readFileSync(file, 'utf8')
       .split('\n')
       .forEach((line, i) => {
-        if (DOM_RE.test(line) && !/^\s*(\/\/|\*)/.test(line)) {
+        if (DOM_RE.test(line) && !/^\s*(\/\/|\/\*|\*)/.test(line)) {
           problems.push(`${relative(root, file)}:${i + 1}: uses a browser global`);
           hit = true;
         }

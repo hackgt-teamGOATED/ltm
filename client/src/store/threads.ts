@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { api } from '../api/rest';
 import { getSocket } from '../api/socket';
 import type { Message, MessageAnalysis, Thread, ThreadSettings } from '../api/types';
+import { mergeAnalyses } from '../learning/logic';
 
 interface ThreadsState {
   threads: Thread[];
@@ -13,6 +14,7 @@ interface ThreadsState {
   loadThread: (threadId: string, profileId: string, viewerLang: string) => Promise<void>;
   upsertMessage: (m: Message) => void;
   setAnalysis: (threadId: string, a: MessageAnalysis) => void;
+  loadAnalyses: (threadId: string, viewerLang: string) => Promise<void>;
   setSettings: (threadId: string, s: ThreadSettings) => void;
 }
 
@@ -46,7 +48,8 @@ export const useThreads = create<ThreadsState>((set) => ({
     set((st) => ({
       messages: { ...st.messages, [threadId]: msgs },
       settings: { ...st.settings, [threadId]: s },
-      analyses: { ...st.analyses, [threadId]: Object.fromEntries(analyses.map((a) => [a.messageId, a])) },
+      // Merge: an analysis:ready that landed while this request was in flight must not be wiped.
+      analyses: { ...st.analyses, [threadId]: mergeAnalyses(st.analyses[threadId], analyses) },
     }));
   },
 
@@ -59,6 +62,13 @@ export const useThreads = create<ThreadsState>((set) => ({
       const next = idx === -1 ? [...list, m] : list.map((x) => (x.id === m.id ? m : x));
       return { messages: { ...st.messages, [m.threadId]: next } };
     }),
+
+  loadAnalyses: async (threadId, viewerLang) => {
+    const list = await api.analyses(threadId, viewerLang);
+    set((st) => ({
+      analyses: { ...st.analyses, [threadId]: mergeAnalyses(st.analyses[threadId], list) },
+    }));
+  },
 
   setAnalysis: (threadId, a) =>
     set((st) => ({ analyses: { ...st.analyses, [threadId]: { ...st.analyses[threadId], [a.messageId]: a } } })),
