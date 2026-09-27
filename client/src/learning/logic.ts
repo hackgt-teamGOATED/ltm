@@ -28,17 +28,17 @@ export function recentLemmas(
 }
 
 /**
- * Stage for `lang`, with hysteresis remembered PER LANGUAGE (a Reader in Spanish must not hold Urdu at
- * Reader). `previousByLang` is read, never mutated; the caller stores the returned stage.
+ * Stage with hysteresis remembered per `key` (profile + language: a Reader in Spanish must not hold Urdu at
+ * Reader). `previous` is read, never mutated; the caller stores the returned stage in the shared map.
  */
 export function computeView(
   mastery: Mastery,
   lemmas: string[],
   now: number,
-  lang: string,
-  previousByLang: ReadonlyMap<string, Stage>,
+  key: string,
+  previous: ReadonlyMap<string, Stage>,
 ): ViewResult {
-  const { stage, readableShare } = languageStage(mastery, lemmas, now, previousByLang.get(lang) ?? null);
+  const { stage, readableShare } = languageStage(mastery, lemmas, now, previous.get(key) ?? null);
   return { stage, readableShare, fadePct: Math.round(readableShare * 100) };
 }
 

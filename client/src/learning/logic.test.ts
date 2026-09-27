@@ -46,9 +46,27 @@ test('hysteresis is per language: Spanish at Reader does not hold Urdu at Reader
   }
   const m = applyEvents({}, mastered).mastery;
   const lemmas = ['a', 'b', 'c', ...Array.from({ length: 8 }, (_, k) => `x${k}`)]; // 3/11 ≈ 27%
-  const prev = new Map<string, Stage>([['es', 'reader']]);
-  assert.equal(computeView(m, lemmas, NOW, 'ur', prev).stage, 'listener');
-  assert.equal(computeView(m, lemmas, NOW, 'ur', new Map([['ur', 'reader']])).stage, 'reader');
+  const prev = new Map<string, Stage>([['p:es', 'reader']]);
+  assert.equal(computeView(m, lemmas, NOW, 'p:ur', prev).stage, 'listener');
+  assert.equal(computeView(m, lemmas, NOW, 'p:ur', new Map([['p:ur', 'reader']])).stage, 'reader');
+});
+
+test('two views sharing the stage map agree inside the hysteresis band (chip vs settings sheet)', () => {
+  const events: LearningEvent[] = [];
+  for (const lemma of ['a', 'b', 'c']) {
+    events.push({ lemma, lang: 'es', type: 'read_unaided', at: NOW - 6 * DAY_MS });
+    for (const d of [5, 3, 0]) events.push({ lemma, lang: 'es', type: 'guess_correct', at: NOW - d * DAY_MS, options: 4 });
+  }
+  const m = applyEvents({}, events).mastery;
+  const shared = new Map<string, Stage>([['p:es', 'reader']]); // was Reader, now 27% readable
+  const lemmas = ['a', 'b', 'c', ...Array.from({ length: 8 }, (_, k) => `x${k}`)];
+  const chip = computeView(m, lemmas, NOW, 'p:es', shared);
+  shared.set('p:es', chip.stage);
+  const sheet = computeView(m, lemmas, NOW, 'p:es', shared);
+  assert.equal(chip.stage, 'reader');
+  assert.equal(sheet.stage, chip.stage);
+  // With separate (fresh) maps they would have disagreed:
+  assert.equal(computeView(m, lemmas, NOW, 'p:es', new Map()).stage, 'listener');
 });
 
 test('voiceSource: stage default until the listener picks one (review #2)', () => {

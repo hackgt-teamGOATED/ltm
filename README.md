@@ -24,7 +24,8 @@ Express server, so no key ever reaches the client.
 
 ## Teammate quickstart (about 5 minutes)
 
-You need Node 22+ and the Supabase URL + secret key from Victor (sent privately).
+You need **Node 22.18 or newer** (the client tests run TypeScript with Node's built-in type stripping) and the
+Supabase URL + secret key from Victor (sent privately). CI should use the same (`node-version: 22.18` or later).
 
 ```bash
 git clone https://github.com/hackgt-teamGOATED/ltm.git heritage-chat

@@ -1,7 +1,14 @@
-import type { LemmaState, Mastery } from '@heirloom/learner';
+import type { LemmaState, Mastery, Stage } from '@heirloom/learner';
 import { create } from 'zustand';
 import { api } from '../api/rest';
 import { getSocket } from '../api/socket';
+
+/**
+ * Last stage shown per `${profileId}:${lang}`, shared by every view (header chip, settings sheet, bubbles) so
+ * the hysteresis band can't make two views disagree. Plain mutable map: it's memory, not something to render.
+ */
+export const previousStages = new Map<string, Stage>();
+export const stageKey = (profileId: string, lang: string) => `${profileId}:${lang}`;
 
 interface LearnerState {
   /** mastery[lang] for the signed-in learner (the server is the source of truth). */
