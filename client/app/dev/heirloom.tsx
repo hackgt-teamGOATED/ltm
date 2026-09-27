@@ -31,7 +31,7 @@ export default function HeirloomFixtures() {
       <ScrollView contentContainerStyle={{ paddingVertical: 12 }}>
         <Text style={styles.h}>Heirloom fixtures ({stage})</Text>
         <HeirloomChip enabled lang="es" stage={stage} fadePct={12} onPress={() => {}} />
-        <HeirloomMessage m={esMessage} pos={{ first: true, last: true }} analysis={esAnalysis} view={view} viewerLang="en" profileId="fx" now={now} />
+        <HeirloomMessage m={esMessage} pos={{ first: true, last: true }} analysis={esAnalysis} view={view} viewerLang="en" profileId="fx" now={now} analyzable />
         <HeirloomMessage
           m={urMessage}
           pos={{ first: true, last: true }}
@@ -40,6 +40,7 @@ export default function HeirloomFixtures() {
           viewerLang="en"
           profileId="fx"
           now={now}
+          analyzable
         />
       </ScrollView>
     </SafeAreaView>

@@ -30,13 +30,16 @@ interface Props {
 }
 
 export function VoicePlayer({ messageId, onSent, source, onSourceChange, urls, pending }: Props) {
-  const key = `${messageId}:${source}`;
+  // Key by the audio actually played: with no translated TTS we fall back to the original (so karaoke,
+  // which listens for `${id}:original`, still highlights).
+  const played: VoiceSource = urls[source] ? source : 'original';
+  const key = `${messageId}:${played}`;
   const active = usePlayer((s) => s.key === key);
   const playing = usePlayer((s) => s.key === key && s.playing);
   const loading = usePlayer((s) => s.key === key && s.loading);
   const progress = usePlayer((s) => (s.key === key && s.duration ? s.position / s.duration : 0));
   const heights = useMemo(() => bars(messageId), [messageId]);
-  const url = urls[source] ?? urls.original;
+  const url = urls[played];
   const fg = onSent ? colors.textOnSent : colors.textPrimary;
   const dim = onSent ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.25)';
   const canToggle = Boolean(onSourceChange && urls.translated && urls.original);

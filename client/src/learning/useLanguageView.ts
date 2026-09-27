@@ -1,9 +1,10 @@
 // Stage and fade for one learner in one language (PLAN.md §7.4), from the same @heirloom/learner functions
 // the server uses. Stage is per user per language, never per bubble.
-import { languageStage, type Mastery, RECENT_MESSAGES, type Stage } from '@heirloom/learner';
+import type { Mastery, Stage } from '@heirloom/learner';
 import { useMemo, useRef } from 'react';
 import type { Message, MessageAnalysis } from '../api/types';
 import { useLearner } from '../store/learner';
+import { computeView, recentLemmas } from './logic';
 
 const EMPTY: Mastery = {};
 
@@ -23,18 +24,16 @@ export function useLanguageView(
   now: number,
 ): LanguageView {
   const mastery = useLearner((s) => (lang ? s.mastery[lang] : undefined)) ?? EMPTY;
-  const previous = useRef<Stage | null>(null);
+  // Hysteresis memory, one entry per language.
+  const previous = useRef(new Map<string, Stage>());
 
   const view = useMemo(() => {
-    const recent = messages
-      .filter((m) => m.senderId !== meId && m.originalLanguage === lang && analyses?.[m.id] && !analyses[m.id].failed)
-      .slice(-RECENT_MESSAGES)
-      .flatMap((m) => (analyses?.[m.id]?.tokens ?? []).filter((t) => !t.isPunct).map((t) => t.lemma));
-    const { stage, readableShare } = languageStage(mastery, recent, now, previous.current);
-    return { stage, readableShare, fadePct: Math.round(readableShare * 100), mastery };
+    if (!lang) return { stage: 'listener' as Stage, readableShare: 0, fadePct: 0, mastery };
+    const v = computeView(mastery, recentLemmas(messages, analyses, meId, lang), now, lang, previous.current);
+    return { ...v, mastery };
   }, [messages, analyses, mastery, meId, lang, now]);
 
-  previous.current = view.stage;
+  if (lang) previous.current.set(lang, view.stage);
   return view;
 }
 

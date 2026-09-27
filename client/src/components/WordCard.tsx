@@ -89,8 +89,7 @@ export function WordCard({ analysis, tokenIndex, lang, viewerLang, profileId, au
         {t.grammar ? <Text style={styles.grammar}>{t.grammar}</Text> : null}
       </View>
 
-      {
-        <View style={[styles.section, styles.divider]}>
+      <View style={[styles.section, styles.divider]}>
           {phrase && (
             <>
               <Text style={styles.label}>{phrase.isIdiom ? '✦ Idiom' : 'Phrase'}</Text>
@@ -103,8 +102,7 @@ export function WordCard({ analysis, tokenIndex, lang, viewerLang, profileId, au
             <Text style={styles.viewMoreText}>View more</Text>
             <Ionicons name="chevron-forward" size={14} color={colors.heirloom} />
           </Pressable>
-        </View>
-      }
+      </View>
       {analysis.needsNativeCheck && <Text style={styles.check}>AI annotation, not yet checked by a native speaker</Text>}
     </View>
   );

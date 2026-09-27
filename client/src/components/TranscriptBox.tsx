@@ -68,7 +68,13 @@ const styles = StyleSheet.create({
   rtl: { writingDirection: 'rtl', textAlign: 'right' },
   hinted: { textDecorationLine: 'underline', textDecorationStyle: 'dotted', textDecorationColor: colors.heirloom },
   fading: { textDecorationLine: 'underline', textDecorationColor: colors.fading },
-  challenge: { borderWidth: 1, borderColor: colors.heirloom, borderRadius: 4 },
+  // Borders are ignored on nested <Text> on iOS/Android, so a tint + solid underline marks challenges.
+  challenge: {
+    backgroundColor: colors.heirloomTint,
+    textDecorationLine: 'underline',
+    textDecorationStyle: 'solid',
+    textDecorationColor: colors.heirloom,
+  },
   q: { color: colors.heirloom, fontFamily: fonts.semibold },
   selected: { backgroundColor: colors.heirloomHighlight, color: colors.textPrimary },
   speaking: { backgroundColor: '#FFE9B8', color: colors.textPrimary },

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../src/api/rest';
@@ -13,6 +13,7 @@ import { ChatSettingsSheet } from '../../src/components/ChatSettingsSheet';
 import { HeirloomChip } from '../../src/components/HeirloomChip';
 import { HeirloomMessage } from '../../src/components/HeirloomMessage';
 import { PlainMessage } from '../../src/components/PlainMessage';
+import { annotatableIds } from '../../src/learning/logic';
 import { useLanguageView } from '../../src/learning/useLanguageView';
 import { subscribeMastery, useLearner } from '../../src/store/learner';
 import { useSelection } from '../../src/store/selection';
@@ -70,18 +71,32 @@ export default function Conversation() {
 
   const learning = settings?.learningEnabled ? settings.learningLang : null;
   useEffect(() => {
-    if (!meId || !meLang || !learning) return;
+    if (!meId || !learning) return;
     loadMastery(meId, learning).catch(() => {});
-    // Already-cached analyses produce no analysis:ready after turning Heirloom on, so fetch them.
-    loadAnalyses(threadId, meLang).catch(() => {});
     return subscribeMastery(meId);
-  }, [meId, meLang, learning, threadId, loadMastery, loadAnalyses]);
+  }, [meId, learning, loadMastery]);
+  // Turning Heirloom on (or switching language) after the chat loaded: cached analyses produce no
+  // analysis:ready, so fetch them. On open, loadThread already fetched them.
+  const learningAtOpen = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (settings === undefined) return; // settings not loaded yet
+    if (learningAtOpen.current === undefined) {
+      learningAtOpen.current = learning;
+      return;
+    }
+    if (learning && learning !== learningAtOpen.current && meLang) loadAnalyses(threadId, meLang).catch(() => {});
+    learningAtOpen.current = learning;
+  }, [settings, learning, meLang, threadId, loadAnalyses]);
   // Opening a chat, or turning Heirloom on/off, starts with no word card open.
   // biome-ignore lint/correctness/useExhaustiveDependencies: threadId and learning are the triggers
   useEffect(() => {
     clearSelection(null);
   }, [threadId, learning, clearSelection]);
   const view = useLanguageView(learning, messages, analyses, meId ?? '', now);
+  const analyzable = useMemo(
+    () => (learning && meId ? annotatableIds(messages, meId, learning, now) : new Set<string>()),
+    [messages, meId, learning, now],
+  );
 
   // Deep link or reload straight into a chat: the thread list (and so the header) isn't loaded yet.
   const haveThread = Boolean(thread);
@@ -141,8 +156,6 @@ export default function Conversation() {
                 myLang={me.language}
                 otherName={other?.displayName ?? ''}
                 suggestedLang={other?.language ?? 'es'}
-                stage={view.stage}
-                fadePct={view.fadePct}
               />,
             )
           }
@@ -170,6 +183,7 @@ export default function Conversation() {
                   viewerLang={me.language}
                   profileId={me.id}
                   now={now}
+                  analyzable={analyzable.has(item.id)}
                 />
               );
             }

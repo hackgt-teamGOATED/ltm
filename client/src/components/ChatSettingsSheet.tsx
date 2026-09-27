@@ -1,10 +1,9 @@
-import type { Stage } from '@heirloom/learner';
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { api } from '../api/rest';
 import type { Lang, ThreadSettings } from '../api/types';
 import { LANGUAGE_NAMES, LEARNABLE } from '../lib/cast';
-import { STAGE_LABEL } from '../learning/useLanguageView';
+import { STAGE_LABEL, useLanguageView } from '../learning/useLanguageView';
 import { useThreads } from '../store/threads';
 import { colors, fonts, radius } from '../theme/tokens';
 
@@ -15,30 +14,42 @@ interface Props {
   otherName: string;
   /** The other person's language: the sensible default for "I'm learning". */
   suggestedLang: string;
-  stage: Stage;
-  fadePct: number;
 }
 
+const EMPTY_MESSAGES: never[] = [];
+
 /** Per-chat Heirloom settings (PLAN.md §7.1, US-2): toggle + "I'm learning" + stage and fade. */
-export function ChatSettingsSheet({ threadId, profileId, myLang, otherName, suggestedLang, stage, fadePct }: Props) {
+export function ChatSettingsSheet({ threadId, profileId, myLang, otherName, suggestedLang }: Props) {
   const current = useThreads((s) => s.settings[threadId]) ?? { learningEnabled: false, learningLang: null };
   const setSettings = useThreads((s) => s.setSettings);
+  const messages = useThreads((s) => s.messages[threadId]) ?? EMPTY_MESSAGES;
+  const analyses = useThreads((s) => s.analyses[threadId]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const choices = LEARNABLE.filter((l) => l !== myLang);
+  // Live stats for whatever is selected now (not a snapshot from when the sheet opened).
+  const now = useMemo(() => Date.now(), []);
+  const view = useLanguageView(current.learningEnabled ? current.learningLang : null, messages, analyses, profileId, now);
+  // Last confirmed server state (rollback target) and a sequence number so stale responses are ignored.
+  const confirmed = useRef<ThreadSettings>(current);
+  const seq = useRef(0);
 
   const save = async (next: ThreadSettings) => {
+    const mine = ++seq.current;
     setSaving(true);
     setError(null);
-    const before = current;
     setSettings(threadId, next); // optimistic
     try {
-      setSettings(threadId, await api.putSettings(threadId, profileId, next));
+      const saved = await api.putSettings(threadId, profileId, next);
+      if (mine !== seq.current) return; // a newer change is in flight; it decides
+      confirmed.current = saved;
+      setSettings(threadId, saved);
     } catch (e) {
-      setSettings(threadId, before);
+      if (mine !== seq.current) return;
+      setSettings(threadId, confirmed.current);
       setError((e as Error).message);
     } finally {
-      setSaving(false);
+      if (mine === seq.current) setSaving(false);
     }
   };
 
@@ -54,6 +65,7 @@ export function ChatSettingsSheet({ threadId, profileId, myLang, otherName, sugg
         {saving && <ActivityIndicator size="small" color={colors.heirloom} style={{ marginRight: 8 }} />}
         <Switch
           value={current.learningEnabled}
+          disabled={saving}
           onValueChange={(on) => save({ learningEnabled: on, learningLang: on ? lang : current.learningLang })}
           trackColor={{ true: colors.heirloom, false: colors.hairline }}
           accessibilityLabel="Heirloom in this chat"
@@ -68,7 +80,8 @@ export function ChatSettingsSheet({ threadId, profileId, myLang, otherName, sugg
             <Pressable
               key={l}
               accessibilityRole="button"
-              accessibilityState={{ selected: on }}
+              accessibilityState={{ selected: on, disabled: saving }}
+              disabled={saving}
               onPress={() => save({ learningEnabled: current.learningEnabled, learningLang: l })}
               style={[styles.lang, on && styles.langOn]}
             >
@@ -80,8 +93,8 @@ export function ChatSettingsSheet({ threadId, profileId, myLang, otherName, sugg
 
       {current.learningEnabled && (
         <View style={styles.stats}>
-          <Stat label="Stage" value={STAGE_LABEL[stage]} />
-          <Stat label="Readable on your own" value={`${fadePct}%`} />
+          <Stat label="Stage" value={STAGE_LABEL[view.stage]} />
+          <Stat label="Readable on your own" value={`${view.fadePct}%`} />
         </View>
       )}
       {error && <Text style={styles.error}>Couldn't save: {error}</Text>}

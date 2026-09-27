@@ -1,8 +1,9 @@
-import { renderPlan, type Stage } from '@heirloom/learner';
+import { renderPlan } from '@heirloom/learner';
 import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { Message, MessageAnalysis } from '../api/types';
 import { usePlayer } from '../audio/player';
+import { voiceSource } from '../learning/logic';
 import type { LanguageView } from '../learning/useLanguageView';
 import { useSelection } from '../store/selection';
 import { colors, fonts } from '../theme/tokens';
@@ -21,6 +22,8 @@ interface Props {
   viewerLang: string;
   profileId: string;
   now: number;
+  /** The server will still analyze this message (show "annotating…" while it's missing). */
+  analyzable: boolean;
 }
 
 /**
@@ -28,10 +31,12 @@ interface Props {
  * layout: translation first (tappable), the original underneath with every word tappable and hints from the
  * learner model, and the word card under the bubble. Phase 5 adds the other stage layouts.
  */
-export function HeirloomMessage({ m, pos, analysis, view, viewerLang, profileId, now }: Props) {
+export function HeirloomMessage({ m, pos, analysis, view, viewerLang, profileId, now, analyzable }: Props) {
   const selected = useSelection((s) => (s.selected?.messageId === m.id ? s.selected.tokenIndex : null));
   const select = useSelection((s) => s.select);
-  const [source, setSource] = useState<VoiceSource>(defaultVoice(view.stage));
+  // The listener's own pick wins; until then the default follows the stage as mastery loads.
+  const [override, setOverride] = useState<VoiceSource | null>(null);
+  const source = voiceSource(override, view.stage);
   const originalKey = `${m.id}:original`;
   const speaking = usePlayer((s) => {
     if (s.key !== originalKey || !s.playing || !analysis) return null;
@@ -48,7 +53,7 @@ export function HeirloomMessage({ m, pos, analysis, view, viewerLang, profileId,
     return (
       <>
         <PlainMessage m={m} mine={false} pos={pos} viewerLang={viewerLang} />
-        {m.status === 'ready' && !analysis && <Text style={styles.pending}>✦ annotating…</Text>}
+        {m.status === 'ready' && !analysis && analyzable && <Text style={styles.pending}>✦ annotating…</Text>}
       </>
     );
   }
@@ -82,7 +87,7 @@ export function HeirloomMessage({ m, pos, analysis, view, viewerLang, profileId,
           messageId={m.id}
           onSent={false}
           source={source}
-          onSourceChange={setSource}
+          onSourceChange={setOverride}
           urls={{ translated: translatedAudio, original: m.audioUrl }}
         />
       )}
@@ -109,9 +114,6 @@ export function HeirloomMessage({ m, pos, analysis, view, viewerLang, profileId,
     </Bubble>
   );
 }
-
-/** Voice default per stage (PLAN.md §7.4): translated voice for Listeners, their voice after that. */
-export const defaultVoice = (stage: Stage): VoiceSource => (stage === 'listener' ? 'translated' : 'original');
 
 const styles = StyleSheet.create({
   divider: { height: 1, marginVertical: 6, backgroundColor: 'rgba(0,0,0,0.08)' },

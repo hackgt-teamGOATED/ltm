@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { api } from '../api/rest';
 import { getSocket } from '../api/socket';
 import type { Message, MessageAnalysis, Thread, ThreadSettings } from '../api/types';
+import { mergeAnalyses } from '../learning/logic';
 
 interface ThreadsState {
   threads: Thread[];
@@ -47,7 +48,8 @@ export const useThreads = create<ThreadsState>((set) => ({
     set((st) => ({
       messages: { ...st.messages, [threadId]: msgs },
       settings: { ...st.settings, [threadId]: s },
-      analyses: { ...st.analyses, [threadId]: Object.fromEntries(analyses.map((a) => [a.messageId, a])) },
+      // Merge: an analysis:ready that landed while this request was in flight must not be wiped.
+      analyses: { ...st.analyses, [threadId]: mergeAnalyses(st.analyses[threadId], analyses) },
     }));
   },
 
@@ -64,7 +66,7 @@ export const useThreads = create<ThreadsState>((set) => ({
   loadAnalyses: async (threadId, viewerLang) => {
     const list = await api.analyses(threadId, viewerLang);
     set((st) => ({
-      analyses: { ...st.analyses, [threadId]: { ...st.analyses[threadId], ...Object.fromEntries(list.map((a) => [a.messageId, a])) } },
+      analyses: { ...st.analyses, [threadId]: mergeAnalyses(st.analyses[threadId], list) },
     }));
   },
 

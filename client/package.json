@@ -7,7 +7,8 @@
     "dev": "expo start --web --port 8081",
     "start": "expo start",
     "export:web": "expo export -p web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",

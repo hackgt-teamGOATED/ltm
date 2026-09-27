@@ -11,19 +11,16 @@ interface Props {
   stage: Stage;
   fadePct: number;
   onPress: () => void;
-  onLongPress?: () => void;
 }
 
 const R = 8;
 const C = 2 * Math.PI * R;
 
 /** Header chip: language + stage + a ring showing how far the translation has faded (PLAN.md §7.2). */
-export function HeirloomChip({ enabled, lang, stage, fadePct, onPress, onLongPress }: Props) {
+export function HeirloomChip({ enabled, lang, stage, fadePct, onPress }: Props) {
   return (
     <Pressable
       onPress={onPress}
-      onLongPress={onLongPress}
-      delayLongPress={1500}
       accessibilityRole="button"
       accessibilityLabel={enabled ? `Heirloom on, ${lang ? LANGUAGE_NAMES[lang] : ''}, ${STAGE_LABEL[stage]}` : 'Heirloom off'}
       hitSlop={6}
