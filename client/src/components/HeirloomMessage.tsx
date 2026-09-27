@@ -204,7 +204,7 @@ export function HeirloomMessage(props: Props) {
         onPress={() => select(null)}
         onLongPress={longPressOnly ? revealTranslation : undefined}
       >
-        <LangSection kind="Original" lang={lang}>
+        <LangSection kind="Original" lang={lang} accessory={readAlone ? <ReadAlonePill /> : null}>
           {m.kind === 'voice' && <VoicePlayer messageId={m.id} onSent={false} source="original" url={m.audioUrl} />}
           {original}
         </LangSection>
@@ -226,10 +226,23 @@ export function HeirloomMessage(props: Props) {
           </>
         )}
         {!translationVisible && wordCard}
-        {readAlone && <Text style={styles.readAlone}>✦ Read on your own</Text>}
         <StatusLine m={m} mine={false} />
       </Bubble>
     </View>
+  );
+}
+
+/** "✦ Read on your own", fading in on the label line (its space is always reserved, so nothing shifts). */
+function ReadAlonePill() {
+  const o = useSharedValue(0);
+  useEffect(() => {
+    o.value = withTiming(1, { duration: 250 });
+  }, [o]);
+  const style = useAnimatedStyle(() => ({ opacity: o.value }));
+  return (
+    <Animated.View style={[styles.readAlone, style]}>
+      <Text style={styles.readAloneText}>✦ Read on your own</Text>
+    </Animated.View>
   );
 }
 
@@ -255,18 +268,8 @@ const styles = StyleSheet.create({
   secondary: { fontSize: 14, color: '#3A3B3C' },
   toggle: { marginTop: 6, fontSize: 12, fontFamily: fonts.semibold, color: colors.heirloom },
   pending: { marginLeft: 16, marginTop: 4, fontSize: 12, fontFamily: fonts.medium, color: colors.heirloomDeep },
-  readAlone: {
-    alignSelf: 'flex-start',
-    marginTop: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-    overflow: 'hidden',
-    backgroundColor: colors.heirloomTint,
-    fontSize: 12,
-    fontFamily: fonts.semibold,
-    color: colors.heirloomDeep,
-  },
+  readAlone: { paddingHorizontal: 8, paddingVertical: 1, borderRadius: 999, backgroundColor: colors.heirloomTint },
+  readAloneText: { fontSize: 12, fontFamily: fonts.semibold, color: colors.heirloomDeep },
   pill: {
     alignSelf: 'flex-start',
     marginLeft: 16,
