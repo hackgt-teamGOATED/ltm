@@ -158,7 +158,20 @@ test('align: Urdu keeps right-to-left text intact and requires romanization', ()
   assert.throws(() => alignAnalysis('آج', raw([tok('آج', 'آج', 'today', [])]), 'today', true), AnalysisInvalid);
 });
 
-test('align: skipped words are invalid; hallucinated translation words just get no span', () => {
+test('align: a skipped word stays as plain text; skipping most of the message is invalid', () => {
+  const a = alignAnalysis(
+    'a b c d e',
+    raw(['a', 'b', 'd', 'e'].map((w) => tok(w, w, w.toUpperCase(), []))),
+    'A B D E',
+    false,
+  );
+  assert.equal(a.tokens.map((t) => t.pre + t.surface).join(''), 'a b c d e', 'the text still rejoins exactly');
+  const c = a.tokens.find((t) => t.surface === 'c');
+  assert.ok(c?.isPunct, 'the skipped word is plain, not tappable');
+  assert.equal(a.tokens.filter((t) => !t.isPunct).length, 4);
+});
+
+test('align: skipped words are invalid when they are most of the message; hallucinated translation words just get no span', () => {
   assert.throws(() => alignAnalysis('hola mijo', raw([tok('hola', 'hola', 'hi', [])]), 'hi', false), AnalysisInvalid);
   const c = alignAnalysis('hola', raw([tok('hola', 'hola', 'hi', ['hello'])]), 'hi', false);
   assert.equal(c.tokens[0].tSpans, undefined);

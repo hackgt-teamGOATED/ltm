@@ -24,6 +24,12 @@ export class AnalysisInvalid extends Error {
 
 const PUNCT_RE = /^[\p{P}\p{S}\s]+$/u;
 
+/**
+ * Words the model left out (common in garbled voice transcripts) stay in the message as plain, non-tappable
+ * text. Past this share of the message the analysis is not trustworthy and is rejected instead.
+ */
+export const MAX_SKIPPED_SHARE = 0.25;
+
 /** Finds `needle` in `hay`, preferring an occurrence that no earlier word already claimed. */
 function locate(hay: string, needle: string, claimed: Span[]): Span | null {
   const n = needle.trim();
@@ -63,6 +69,12 @@ export function alignAnalysis(
   const tokens: Token[] = [];
   const rawIndexToToken = new Map<number, number>();
   let cursor = 0;
+  let skipped = 0; // characters of real words the model skipped, kept as plain text
+  let firstSkipAt: number | undefined;
+  const skip = (text: string, at: number) => {
+    skipped += text.replace(/\s/g, '').length;
+    firstSkipAt ??= at;
+  };
   const pushPunct = (text: string) => {
     const m = /^(\s*)([\s\S]*?)$/.exec(text) as RegExpExecArray;
     if (m[2]) tokens.push({ i: tokens.length, surface: m[2].trimEnd(), pre: m[1], lemma: m[2].trim(), gloss: '', isPunct: true });
@@ -76,7 +88,7 @@ export function alignAnalysis(
     const gap = original.slice(cursor, at);
     const lead = /^\s*/.exec(gap)?.[0] ?? '';
     if (gap.trim()) {
-      if (!PUNCT_RE.test(gap)) throw new AnalysisInvalid('skipped_text', cursor);
+      if (!PUNCT_RE.test(gap)) skip(gap, cursor);
       pushPunct(gap);
     }
     const isPunct = t.isPunct || PUNCT_RE.test(surface);
@@ -100,9 +112,10 @@ export function alignAnalysis(
   });
   const tail = original.slice(cursor);
   if (tail.trim()) {
-    if (!PUNCT_RE.test(tail)) throw new AnalysisInvalid('unanalyzed_tail', cursor);
+    if (!PUNCT_RE.test(tail)) skip(tail, cursor);
     pushPunct(tail);
   }
+  if (skipped > original.replace(/\s/g, '').length * MAX_SKIPPED_SHARE) throw new AnalysisInvalid('skipped_text', firstSkipAt);
 
   const rejoined = tokens.map((t) => t.pre + t.surface).join('');
   if (rejoined.trim() !== original.trim()) throw new AnalysisInvalid('rejoin_mismatch');
