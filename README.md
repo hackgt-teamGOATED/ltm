@@ -1,175 +1,116 @@
-# Heritage Chat — v0
+# Heirloom
 
-Two-way translated messaging between family members who don't share a language.
-Text and voice notes arrive already translated into the reader's language.
+**Translation that fades. Fluency that stays.**
 
-## Stack
+A messenger that translates between people who don't share a language, and quietly teaches the
+learner the other person's language from their own conversations, until the translation isn't needed.
+Built at HackGT 13 (Oracle of the Deep track, Meta challenge).
 
-| Layer | Choice | Why |
-|---|---|---|
-| Web | Vite + React + TypeScript | Fast dev server, what the team already knows |
-| API | Express 5 + TypeScript (tsx) | Simple REST + holds all secrets |
-| Realtime | Socket.IO | Pushes "new" and "translated" events to open chats |
-| Dev proxy | Vite proxy | `/api` and `/socket.io` served from the web origin, so one tunnel URL covers everything |
-| Database | Supabase Postgres | Tables for people, threads, messages, translations |
-| Audio storage | Supabase Storage (private bucket) | Voice notes + TTS audio, served via 1-hour signed URLs |
-| Translation | OpenAI chat model (`gpt-4o-mini`) | Handles tone, emoji, Hinglish |
-| Speech → text | `whisper-1` | Also returns word timestamps for karaoke highlighting later |
-| Text → speech | `gpt-4o-mini-tts` | Reads translated voice notes aloud |
+**Try it:** https://ltm-sp5l.onrender.com/?as=arjun (free hosting, so the first load can take about a minute).
+Pick a person with `?as=`:
 
-All model names are env vars, so you can swap them without code changes.
+| `?as=` | Person | Speaks | Heirloom |
+|---|---|---|---|
+| `arjun` | Arjun, the learner | English | On for Abuela (Spanish) and Zara (Urdu), with 8 weeks of simulated history |
+| `abuela` | Abuela | Spanish | Off |
+| `zara` | Zara | Urdu | Off |
+| `sarosh` | Sarosh | Urdu | Off |
+| `victor` | Victor | English | On, learning Urdu (starts as a Listener) |
 
-The browser never talks to Supabase or OpenAI directly. Everything goes through the
-Express server, so no key ever reaches the client.
+## What it does
 
-## Teammate quickstart (about 5 minutes)
+- **Two-way translated chat.** Text and voice notes arrive translated, transcribed and read aloud.
+  For the other person it is a normal chat.
+- **Heirloom (per chat, opt-in).** Tap a word for its meaning, grammar and cultural context, with the matching
+  word highlighted in the translation. Reading without help, tapping, guessing and replaying a voice note
+  all feed a per-word memory model.
+- **The fade.** Each language has four stages: Listener, Reader, Conversant, Fluent. Each shows less
+  translation, and a word's hint dissolves once you know it.
+- **Progress tab** with Mastered / Learning / New words and how much you can read on your own.
+- **Time-travel slider:** long-press the header chip for 1.5 s (or add `?demo=1` to a chat URL) to replay
+  eight weeks through the real model. It is read-only and logs nothing.
 
-You need **Node 22.18 or newer** (the client tests run TypeScript with Node's built-in type stripping) and the
-Supabase URL + secret key from Victor (sent privately). CI should use the same (`node-version: 22.18` or later).
+## How it works
+
+The LLM only annotates messages; the learner model decides what to show.
+
+```
+client (Expo, web) ──/api + /socket.io──▶ server (Express + Socket.IO) ──▶ Supabase (Postgres + private audio bucket)
+                                                   └──▶ OpenAI: Whisper, gpt-4o-mini, gpt-4o-mini-tts
+packages/learner: pure TypeScript memory model, used by the server, the client, the slider and the evaluation
+```
+
+1. A message is stored and shown at once (`message:new`), then translated (`message:updated`).
+   Voice notes go through Whisper, translation and text-to-speech first.
+2. For every member learning that language, the server analyzes the message into words
+   (lemma, romanization, meaning, matching translation words), computes the character spans itself and
+   validates them, then emits `analysis:ready`.
+3. Learning events (views, taps, guesses) update per-word, per-skill half-life-regression state on the
+   server and, optimistically, in the client with the same code. `mastery:updated` keeps other views live.
+
+| Layer | Choice |
+|---|---|
+| Client | Expo / React Native for web, expo-router, Zustand, Reanimated |
+| Server | Node 22, Express 5, Socket.IO |
+| Data | Supabase Postgres; private bucket for audio (signed URLs) |
+| AI | `gpt-4o-mini` (translate, analyze), `whisper-1`, `gpt-4o-mini-tts` (model names are env vars) |
+| Model | `packages/learner`, half-life regression over `recognize` / `script` / `produce` skills |
+| Hosting | One Render service serves the API, the sockets and the web build |
+
+The browser never talks to Supabase or OpenAI; every key stays on the server.
+
+## Run it locally
+
+You need **Node 22.18 or newer** and the Supabase URL + secret key from a teammate.
 
 ```bash
-git clone https://github.com/hackgt-teamGOATED/ltm.git heritage-chat
-cd heritage-chat
-npm run setup      # run this yourself, not through an agent: it asks for keys
-npm run dev
+git clone https://github.com/hackgt-teamGOATED/ltm.git
+cd ltm
+npm run setup      # run it yourself: it prompts for keys and saves them outside the repo
+npm run dev        # app on http://localhost:8081, API + sockets on :4000
 ```
 
-Then open http://localhost:8081 (the Heirloom Expo app; the API and sockets run on :4000).
-Pick a person, or go straight in with `http://localhost:8081/?as=arjun` (`abuela`, `zara`).
+Open http://localhost:8081/?as=arjun. `npm run doctor` checks keys, database, storage and OpenAI without
+printing any secret. Everyone shares one Supabase project, so you will see each other's test messages.
+Database changes are numbered files in `supabase/`; run new ones in the Supabase SQL editor.
 
-The v0 Vite client is still here as a fallback: `npm run dev:v0` serves it on http://localhost:5173,
-including the split-screen view below.
+| Command | Does |
+|---|---|
+| `npm run check` | lint + typecheck + all tests |
+| `npm run build` | build the learner, the server and the web export (`client/dist`) |
+| `npm run seed:demo` | seed the demo history (idempotent, ids start with `de300000-`) |
+| `npm run seed:demo -w server -- --reset` | dry run: shows the non-seeded demo-thread messages a reset would delete. Add `--yes` to delete them |
+| `npm run analysis` | rerun the evaluation and write the charts to `analysis/out/` |
+| `npm run dev:v0` | the original v0 web client on :5173 |
 
-`npm run setup` checks Node, saves your keys to `~/.config/heritage-chat/server.env`
-(outside the repo, readable only by you), installs dependencies, installs a git hook that
-blocks committing keys, and runs `npm run doctor`.
+## Deploy
 
-- **Something broken?** `npm run doctor` checks keys, database, storage and OpenAI without
-  printing any secrets, and tells you how to fix each problem.
-- **Wrong key?** `npm run setup -- --reset`
-- **Shared database:** everyone uses the same Supabase project, so you'll see each other's
-  test messages. That's expected.
+`render.yaml` describes one Render web service. Set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and
+`OPENAI_API_KEY` in the dashboard (they are never committed); `STATIC_DIR=client/dist` makes the server serve
+the web build. Every merge to `main` redeploys. Voice recording needs HTTPS, which Render provides.
 
-### First-time project setup (already done, for reference)
-
-1. Create a Supabase project. In the SQL editor, run `supabase/001_init.sql`, then `supabase/seed.sql`.
-2. Run `npm run setup` and paste the Project URL, the Secret key (`sb_secret_…`) and an OpenAI key.
-
-## Keeping secrets safe (humans and agents)
-
-- Keys never live in the repo. The server loads them from `~/.config/heritage-chat/server.env`
-  (or `DOTENV_CONFIG_PATH` if set, or a gitignored `server/.env` as a fallback).
-- `AGENTS.md` (also loaded by `CLAUDE.md`) tells coding agents the rules: never read the
-  secrets file, never run setup, use `npm run doctor` to diagnose.
-- `.claude/settings.json` denies Claude Code access to the secrets file, `.env` files and the
-  setup script. `.cursorignore` does the same for Cursor.
-- The pre-commit hook (`scripts/hooks/pre-commit`) rejects env files and key-shaped strings.
-- Keep manual approval on for agent terminal commands. Ignore rules stop file reads, not a shell
-  command an agent decides to run.
-
-## Seeing both sides
-
-- **Heirloom app:** open two windows (or a normal and a private window) at
-  `http://localhost:8081/?as=arjun` and `http://localhost:8081/?as=abuela`. Each device remembers its
-  person. On a phone on the same Wi-Fi, use `http://<laptop-ip>:8081`: in dev the API accepts any
-  local-network origin. Voice recording still needs HTTPS, so for voice use the Render URL or a tunnel.
-- **Split screen (v0 only, `npm run dev:v0`):** `/split.html?left=Arjun&right=Nani` loads two copies of the app, one per person.
-  Best for building and for recording the demo video. `/split.html?left=Arjun&right=Dada` does the
-  same for Urdu (right-to-left Nastaliq).
-- **Separate windows:** any URL accepts `?as=Nani` (name or profile id). Without it, each tab
-  remembers its own person, so two windows in one browser also work.
-- **Separate devices (phones, a teammate's laptop):** run a free HTTPS tunnel to the web port:
-  ```bash
-  brew install cloudflared            # or see cloudflare's docs for Windows/Linux
-  cloudflared tunnel --url http://localhost:5173
-  ```
-  It prints an `https://<random>.trycloudflare.com` URL. Open it on any device, anywhere.
-  One URL is enough because Vite proxies `/api` and `/socket.io` to the server.
-  ngrok works the same way: `ngrok http 5173`.
-  - HTTPS matters: browsers only allow microphone recording on HTTPS or localhost, so voice
-    notes won't record over a plain `http://192.168.x.x` LAN address.
-  - Campus Wi-Fi often blocks device-to-device traffic anyway, so the tunnel is the reliable option.
-  - The laptop running `npm run dev` has to stay on. For a permanent deploy, host the server on a
-    platform with long-running processes (Render, Railway, Fly) since Socket.IO needs websockets,
-    host the web build anywhere static, and set `VITE_API_URL` + `WEB_ORIGIN`.
-
-## How a message flows
-
-**Text**
-1. `POST /api/threads/:id/messages` stores the message with `status = processing`.
-2. The server emits `message:new` right away, so the sender sees it instantly.
-3. It translates into every other member's language, saves rows in `message_translations`,
-   sets `status = ready`, and emits `message:updated`.
-
-**Voice**
-1. The browser records with `MediaRecorder` (webm on Chrome, mp4 on Safari) and uploads to
-   `POST /api/threads/:id/voice`.
-2. The server stores the original audio, emits `message:new`, then runs:
-   Whisper transcript → translate → TTS → upload mp3 → `message:updated`.
-
-**Reverse translation** costs nothing extra. The sender's bubble has a "What they see" toggle
-that shows the stored translation the recipient received.
-
-## API
-
-| Method | Path | Body |
-|---|---|---|
-| GET | `/api/health` | |
-| GET | `/api/profiles` | |
-| GET | `/api/profiles/:id/threads` | |
-| GET | `/api/threads/:id/messages` | |
-| POST | `/api/threads/:id/messages` | JSON `{ senderId, text }` |
-| POST | `/api/threads/:id/voice` | multipart: `senderId`, `audio` |
-| POST | `/api/speech` | JSON `{ text, language }` → mp3 bytes (read aloud fallback) |
-
-Socket events: client emits `thread:join` / `thread:leave` with a thread id; server emits
-`message:new` and `message:updated` with the full message.
-
-## Project layout
+## Layout
 
 ```
-scripts/
-  setup.sh            one-time setup: keys, deps, git hook, doctor
-  hooks/pre-commit    blocks committing env files / API keys
-.claude/
-  settings.json       Claude Code deny rules for secrets
-  skills/verify-pipeline/SKILL.md   end-to-end pipeline test for agents
-AGENTS.md             rules + architecture for coding agents (CLAUDE.md imports it)
-server/src/
-  index.ts      Express + Socket.IO bootstrap
-  doctor.ts     `npm run doctor` setup check (never prints secrets)
-  routes.ts     REST endpoints
-  messages.ts   message pipeline (store → translate → TTS → emit)
-  ai.ts         translate / transcribe / synthesize (OpenAI)
-  supabase.ts   server-only Supabase client
-  env.ts        env loading (~/.config/heritage-chat/server.env first)
-web/
-  split.html                  two-pane view, one person per pane
-web/src/
-  App.tsx                     person picker (?as= param) + conversation list
-  components/ThreadView.tsx   loads messages, joins socket room
-  components/MessageBubble.tsx  translated view, original / "what they see" toggle, read aloud
-  components/Composer.tsx     text input + voice recording
-supabase/
-  001_init.sql  schema, RLS lock-down, private audio bucket
-  003_urdu_demo_user.sql  adds Dada (ur) + the Arjun/Dada thread
-  seed.sql      Arjun (en), Nani (hi), Abuela (es), Dada (ur)
+packages/learner/   memory model, stages, render plan, replay (pure functions, no I/O)
+server/src/         Express, Socket.IO, message pipeline (messages.ts), OpenAI (ai.ts), learning/ (analysis, events, progress)
+server/src/scripts/ demo seed and learner simulator
+client/             Expo app: app/ (screens), src/ (components, stores, learning logic)
+analysis/           evaluation run and charts
+supabase/           001 schema, 002 learning tables, 003 Urdu demo user, 004 team accounts, seed.sql
+docs/               PROJECT.md (scope), STATUS.md, DECISIONS.md; PLAN.md at the root
+web/                the v0 client, kept as a fallback
 ```
 
-## Known v0 shortcuts
+## Secrets
 
-- **No auth.** The client says who the sender is. Fine for a demo, not for real use.
-  Next step: Supabase Auth, then check the user on the server instead of trusting `senderId`.
-- **Tables are locked to the server.** RLS is on with no policies, so the public key can read nothing.
-- **Read aloud for text** uses the browser's built-in speech engine when the OS has a voice for
-  the language, and falls back to server TTS (`POST /api/speech`) when it doesn't. macOS ships a
-  Hindi voice but no Urdu one, so Urdu goes through the server: a second of latency and one API
-  call per new phrase, cached per phrase in the tab. Local-voice quality still depends on the OS.
-- **Voice cloning** is out of scope for v0.
+Keys live in `~/.config/heritage-chat/server.env`, outside the repo. A pre-commit hook blocks env files and
+key-shaped strings. Coding agents follow `AGENTS.md`: they never read that file and never run setup.
 
-## Next (v1)
+## Honest notes
 
-- `events`, `word_state` and `thread_vocab` tables for the learner model
-- Structured translation output (per-word lemma, gloss, romanization) from the same translation call
-- Word-level rendering states (translated / learning / known) and the word sheet
-- Karaoke highlighting using `messages.word_timestamps`
+- The demo history is **simulated** (seeded, fixed random seed). The evaluation is a simulation of 200
+  learners with hand-set constants, not a study of real people.
+- Spanish and Urdu annotations are AI-generated and **not yet checked by a native speaker**; the word card says so.
+- There is no login: the client says who is speaking. Fine for a demo, not for real use.
+- Recording on iPhone Safari has not been verified on a real device.
