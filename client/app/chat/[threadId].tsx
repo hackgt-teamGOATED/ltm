@@ -273,7 +273,7 @@ export default function Conversation() {
             ) : null;
             if (!mine && learning && item.originalLanguage === learning) {
               return (
-                <>
+                <View>
                   {divider}
                   <HeirloomMessage
                   m={item}
@@ -287,14 +287,14 @@ export default function Conversation() {
                   guessPool={guessPool}
                   readOnly={demoActive}
                   />
-                </>
+                </View>
               );
             }
             return (
-              <>
+              <View>
                 {divider}
                 <PlainMessage m={item} mine={mine} pos={pos} viewerLang={me.language} />
-              </>
+              </View>
             );
           }}
         />
