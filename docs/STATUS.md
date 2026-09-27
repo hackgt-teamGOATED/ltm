@@ -19,7 +19,7 @@ only when every done-criterion in PLAN.md §11 passed; add one line of notes.
 | 0 Foundations and spikes | Victor | 7:30 PM | built | Expo SDK 57 client, web export OK, STATIC_DIR serving, render.yaml. Needs: Render service + iPhone recording test |
 | 1 Learner package | Lexi | 9:00 PM | done | Built from PLAN §8 (no Python reference, D-020); 18 tests pass |
 | 2 Server learning layer | Sarosh | 9:30 PM | built | Typecheck + build pass; live check blocked on Supabase key + `002_learning.sql` |
-| 2b Seed script | Sarosh | 10:30 PM | todo | |
+| 2b Seed script | Sarosh | 10:30 PM | built | Script + simulator + tests (arc Listener → Reader, D-024). Needs a live run: Supabase key + `002_learning.sql` |
 | 3 Chat core | Victor | 9:30 PM | built | Chat list, conversation, bubbles, composer (text + voice), live updates, voice player. Needs: two-iPhone test |
 | 4 Heirloom layer | Victor + Sarosh | 11:30 PM | todo | |
 | 5 The fade | Victor + Lexi | 12:45 AM | todo | |
