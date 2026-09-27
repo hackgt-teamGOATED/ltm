@@ -1,10 +1,13 @@
-import { renderPlan } from '@heirloom/learner';
-import { useMemo, useState } from 'react';
+import { type Lang, renderPlan } from '@heirloom/learner';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import type { Message, MessageAnalysis } from '../api/types';
 import { usePlayer } from '../audio/player';
-import { voiceSource } from '../learning/logic';
+import { logEvents } from '../learning/eventQueue';
+import { guessOptions, showTranslationEvents, tapEventType, voiceSource } from '../learning/logic';
 import type { LanguageView } from '../learning/useLanguageView';
+import { DISSOLVE_MS, masteryKey, useLearner } from '../store/learner';
 import { useSelection } from '../store/selection';
 import { colors, fonts } from '../theme/tokens';
 import { Bubble, type GroupPos, StatusLine } from './MessageBubble';
@@ -24,22 +27,36 @@ interface Props {
   now: number;
   /** The server will still analyze this message (show "annotating…" while it's missing). */
   analyzable: boolean;
+  /** Glosses from this chat, for the distractors of in-chat guesses. */
+  guessPool: string[];
+  /** Replaying history (demo slider): render only, never log. */
+  readOnly?: boolean;
 }
 
+const NO_LEMMAS: ReadonlySet<string> = new Set();
+
 /**
- * A received message in a chat where Heirloom is on (PLAN.md §7.4–§7.5). Phase 4 renders the Listener
- * layout: translation first (tappable), the original underneath with every word tappable and hints from the
- * learner model, and the word card under the bubble. Phase 5 adds the other stage layouts.
+ * A received message in a chat where Heirloom is on (PLAN.md §7.4–§7.5). The layout follows the learner's
+ * stage in this language (never per bubble):
+ *   Listener    translation first, the original small and tappable underneath
+ *   Reader      original first, translation collapsed behind "Show translation"
+ *   Conversant  original only; long-press the bubble for the translation
+ *   Fluent      original only; long-press stays as the safety net
+ * Every interaction becomes a learning event (PLAN.md §8.3), applied locally at once and synced.
  */
-export function HeirloomMessage({ m, pos, analysis, view, viewerLang, profileId, now, analyzable }: Props) {
-  const selected = useSelection((s) => (s.selected?.messageId === m.id ? s.selected.tokenIndex : null));
+export function HeirloomMessage(props: Props) {
+  const { m, pos, analysis, view, viewerLang, profileId, now, analyzable, guessPool, readOnly } = props;
+  const selection = useSelection((s) => (s.selected?.messageId === m.id ? s.selected : null));
   const select = useSelection((s) => s.select);
-  // The listener's own pick wins; until then the default follows the stage as mastery loads.
+  const markTap = useLearner((s) => s.markTap);
+  const read = useLearner((s) => s.reads[m.id]);
+  const justMastered = useLearner((s) => s.justMastered[masteryKey(profileId, m.originalLanguage)]);
   const [override, setOverride] = useState<VoiceSource | null>(null);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [answered, setAnswered] = useState<string | null>(null); // `${messageId}:${tokenIndex}` of the last guess
   const source = voiceSource(override, view.stage);
-  const originalKey = `${m.id}:original`;
   const speaking = usePlayer((s) => {
-    if (s.key !== originalKey || !s.playing || !analysis) return null;
+    if (s.key !== `${m.id}:original` || !s.playing || !analysis) return null;
     const t = analysis.tokens.find((x) => x.start !== undefined && x.end !== undefined && s.position >= x.start && s.position < x.end);
     return t ? t.i : null;
   });
@@ -47,9 +64,25 @@ export function HeirloomMessage({ m, pos, analysis, view, viewerLang, profileId,
     () => (analysis ? renderPlan(analysis.tokens, view.mastery, now, view.stage).tokens : null),
     [analysis, view.mastery, view.stage, now],
   );
+  // Words in this message that became mastered in the last 1.2 s: their gloss dissolves.
+  const [tick, setTick] = useState(0); // re-render once the moment is over, so the pill unmounts
+  // biome-ignore lint/correctness/useExhaustiveDependencies: tick re-evaluates the time window
+  const dissolving = useMemo(() => {
+    if (!analysis || !justMastered) return NO_LEMMAS;
+    const t = Date.now();
+    return new Set(analysis.tokens.map((x) => x.lemma).filter((l) => justMastered[l] && t - justMastered[l] < DISSOLVE_MS));
+  }, [analysis, justMastered, tick]);
+  useEffect(() => {
+    if (!dissolving.size) return;
+    const timer = setTimeout(() => setTick((n) => n + 1), DISSOLVE_MS + 50);
+    return () => clearTimeout(timer);
+  }, [dissolving]);
 
-  // Not annotated yet (or annotation failed): a normal translated bubble, with a quiet gold marker.
-  if (!analysis || analysis.failed || !analysis.tokens.length) {
+  // Collapse the translation again when the stage changes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the stage is the trigger
+  useEffect(() => setShowTranslation(false), [view.stage]);
+
+  if (!analysis || analysis.failed || !analysis.tokens.length || !plan) {
     return (
       <>
         <PlainMessage m={m} mine={false} pos={pos} viewerLang={viewerLang} />
@@ -58,70 +91,188 @@ export function HeirloomMessage({ m, pos, analysis, view, viewerLang, profileId,
     );
   }
 
+  const lang = m.originalLanguage as Lang;
+  const ctx = { messageId: m.id, threadId: m.threadId, lang };
+  const log = (events: Parameters<typeof logEvents>[1]) => !readOnly && logEvents(profileId, events);
+  const selected = selection?.tokenIndex ?? null;
+  // While guessing, highlighting the matching translation words would give the answer away.
+  const guessing = Boolean(selection?.guess) && answered !== `${selection?.messageId}:${selection?.tokenIndex}`;
+
+  const tapOriginal = (i: number) => {
+    const t = analysis.tokens[i];
+    const p = plan[i];
+    if (!t || !p) return;
+    if (selected === i) return select(null);
+    if (p.challenge && !readOnly) return select({ messageId: m.id, tokenIndex: i, guess: true });
+    log([{ ...ctx, lemma: t.lemma, form: t.surface.toLowerCase(), type: tapEventType(p.status), at: Date.now() }]);
+    markTap(m.id, t.lemma);
+    select({ messageId: m.id, tokenIndex: i });
+  };
+  const tapTranslation = (i: number) => {
+    const t = analysis.tokens[i];
+    if (!t) return;
+    if (selected === i) return select(null);
+    log([{ ...ctx, lemma: t.lemma, type: 'tap_explore', at: Date.now() }]); // curiosity is never penalized
+    select({ messageId: m.id, tokenIndex: i });
+  };
+  const revealTranslation = () => {
+    if (showTranslation) return setShowTranslation(false);
+    log(showTranslationEvents(analysis.tokens, plan, { ...ctx, at: Date.now() }));
+    markTap(m.id, '');
+    setShowTranslation(true);
+  };
+
+  const listener = view.stage === 'listener';
+  const reader = view.stage === 'reader';
+  const longPressOnly = view.stage === 'conversant' || view.stage === 'fluent';
   const translatedAudio = m.translations.find((t) => t.language === viewerLang)?.audioUrl ?? null;
-  const toggle = (i: number) => select(selected === i ? null : { messageId: m.id, tokenIndex: i });
+  const readAlone = !listener && read?.viewed && read.taps === 0;
+  const t = selected !== null ? analysis.tokens[selected] : undefined;
+
+  const translation = (
+    <TranslationText
+      analysis={analysis}
+      viewerLang={viewerLang}
+      selected={guessing ? null : selected}
+      onPressToken={tapTranslation}
+      onSent={false}
+      style={listener ? undefined : styles.secondary}
+    />
+  );
+  const original = (
+    <TranscriptBox
+      analysis={analysis}
+      lang={lang}
+      plan={plan}
+      selected={selected}
+      speaking={speaking}
+      onPressToken={tapOriginal}
+      onSent={false}
+      size={listener ? 14 : 16}
+      dissolving={dissolving}
+    />
+  );
 
   return (
-    <Bubble
-      mine={false}
-      pos={pos}
-      heirloom
-      onPress={() => select(null)}
-      footer={
-        selected !== null ? (
-          <WordCard
-            analysis={analysis}
-            tokenIndex={selected}
-            lang={m.originalLanguage}
-            viewerLang={viewerLang}
-            profileId={profileId}
-            audioUrl={m.audioUrl}
-            onSelect={(i) => select({ messageId: m.id, tokenIndex: i })}
-            onClose={() => select(null)}
+    <View>
+      {dissolving.size > 0 && <KnowThisNow />}
+      <Bubble
+        mine={false}
+        pos={pos}
+        heirloom
+        onPress={() => select(null)}
+        onLongPress={longPressOnly ? revealTranslation : undefined}
+        footer={
+          <>
+            {readAlone && <Text style={styles.readAlone}>✦ Read on your own</Text>}
+            {selection && t ? (
+              <WordCard
+                key={`${m.id}:${selected}:${selection.guess ? 'g' : 'c'}`}
+                analysis={analysis}
+                tokenIndex={selection.tokenIndex}
+                lang={lang}
+                viewerLang={viewerLang}
+                profileId={profileId}
+                audioUrl={m.audioUrl}
+                onSelect={tapTranslation}
+                onClose={() => select(null)}
+                onHear={() => log([{ ...ctx, lemma: t.lemma, type: 'audio_play', at: Date.now() }])}
+                guess={
+                  selection.guess
+                    ? {
+                        options: guessOptions(t.gloss, guessPool, `${m.id}:${t.lemma}`),
+                        onAnswer: (correct) => {
+                          log([
+                            {
+                              ...ctx,
+                              lemma: t.lemma,
+                              form: t.surface.toLowerCase(),
+                              type: correct ? 'guess_correct' : 'guess_wrong',
+                              options: 4,
+                              at: Date.now(),
+                            },
+                          ]);
+                          markTap(m.id, t.lemma);
+                          setAnswered(`${m.id}:${selection.tokenIndex}`);
+                        },
+                      }
+                    : undefined
+                }
+              />
+            ) : null}
+          </>
+        }
+      >
+        {m.kind === 'voice' && (
+          <VoicePlayer
+            messageId={m.id}
+            onSent={false}
+            source={source}
+            onSourceChange={setOverride}
+            urls={{ translated: translatedAudio, original: m.audioUrl }}
           />
-        ) : null
-      }
-    >
-      {m.kind === 'voice' && (
-        <VoicePlayer
-          messageId={m.id}
-          onSent={false}
-          source={source}
-          onSourceChange={setOverride}
-          urls={{ translated: translatedAudio, original: m.audioUrl }}
-        />
-      )}
-      <TranslationText
-        analysis={analysis}
-        viewerLang={viewerLang}
-        selected={selected}
-        onPressToken={toggle}
-        onSent={false}
-        style={m.kind === 'voice' ? { marginTop: 6 } : undefined}
-      />
-      <View style={styles.divider} />
-      <TranscriptBox
-        analysis={analysis}
-        lang={m.originalLanguage}
-        plan={plan}
-        selected={selected}
-        speaking={speaking}
-        onPressToken={toggle}
-        onSent={false}
-        size={14}
-      />
-      <StatusLine m={m} mine={false} />
-    </Bubble>
+        )}
+        <View style={m.kind === 'voice' ? { marginTop: 6 } : undefined}>
+          {listener ? (
+            <>
+              {translation}
+              <View style={styles.divider} />
+              {original}
+            </>
+          ) : (
+            <>
+              {original}
+              {reader && (
+                <Text onPress={revealTranslation} style={styles.toggle} suppressHighlighting>
+                  {showTranslation ? 'Hide translation' : 'Show translation'}
+                </Text>
+              )}
+              {showTranslation && (
+                <>
+                  <View style={styles.divider} />
+                  {translation}
+                </>
+              )}
+            </>
+          )}
+        </View>
+        <StatusLine m={m} mine={false} />
+      </Bubble>
+    </View>
+  );
+}
+
+/** "You know this now": a small gold pill that rises and fades over 1.2 s (PLAN.md §7.4). */
+function KnowThisNow() {
+  const o = useSharedValue(0);
+  const y = useSharedValue(6);
+  useEffect(() => {
+    o.value = withTiming(1, { duration: 200 });
+    y.value = withTiming(0, { duration: 200 });
+    o.value = withDelay(DISSOLVE_MS - 300, withTiming(0, { duration: 300 }));
+  }, [o, y]);
+  const style = useAnimatedStyle(() => ({ opacity: o.value, transform: [{ translateY: y.value }] }));
+  return (
+    <Animated.View style={[styles.pill, style]} pointerEvents="none">
+      <Text style={styles.pillText}>✦ You know this now</Text>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   divider: { height: 1, marginVertical: 6, backgroundColor: 'rgba(0,0,0,0.08)' },
-  pending: {
+  secondary: { fontSize: 14, color: '#3A3B3C' },
+  toggle: { marginTop: 6, fontSize: 12, fontFamily: fonts.semibold, color: colors.heirloom },
+  pending: { marginLeft: 16, marginTop: 2, fontSize: 11, fontFamily: fonts.medium, color: colors.heirloom },
+  readAlone: { marginTop: 3, marginLeft: 4, fontSize: 11, fontFamily: fonts.semibold, color: colors.heirloom },
+  pill: {
+    alignSelf: 'flex-start',
     marginLeft: 16,
-    marginTop: 2,
-    fontSize: 11,
-    fontFamily: fonts.medium,
-    color: colors.heirloom,
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: colors.heirloom,
   },
+  pillText: { color: '#fff', fontSize: 12, fontFamily: fonts.semibold },
 });

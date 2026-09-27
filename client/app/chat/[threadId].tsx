@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View, type ViewToken } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../src/api/rest';
 import type { Message } from '../../src/api/types';
@@ -13,9 +13,12 @@ import { ChatSettingsSheet } from '../../src/components/ChatSettingsSheet';
 import { HeirloomChip } from '../../src/components/HeirloomChip';
 import { HeirloomMessage } from '../../src/components/HeirloomMessage';
 import { PlainMessage } from '../../src/components/PlainMessage';
-import { annotatableIds } from '../../src/learning/logic';
+import { type Lang, renderPlan, type Stage } from '@heirloom/learner';
+import { StageUpCard } from '../../src/components/StageUpCard';
+import { logEvents } from '../../src/learning/eventQueue';
+import { annotatableIds, isStageUp, VIEW_MS, viewEvents } from '../../src/learning/logic';
 import { useLanguageView } from '../../src/learning/useLanguageView';
-import { subscribeMastery, useLearner } from '../../src/store/learner';
+import { stageKey, subscribeMastery, useLearner } from '../../src/store/learner';
 import { useSelection } from '../../src/store/selection';
 import { useSheet } from '../../src/store/sheet';
 import { useMe } from '../../src/store/session';
@@ -23,6 +26,8 @@ import { subscribeThread, useThreads } from '../../src/store/threads';
 import { colors, fonts } from '../../src/theme/tokens';
 
 const GROUP_GAP_MS = 5 * 60_000;
+/** Last stage announced per profile+language (the first one seen is the baseline, not a stage-up). */
+const announcedStages = new Map<string, Stage>();
 const EMPTY: Message[] = [];
 
 function groupPositions(list: Message[]): Map<string, GroupPos> {
@@ -93,6 +98,43 @@ export default function Conversation() {
     clearSelection(null);
   }, [threadId, learning, clearSelection]);
   const view = useLanguageView(learning, messages, analyses, meId ?? '', now);
+  // Distractors for in-chat guesses: every gloss seen in this chat.
+  const guessPool = useMemo(
+    () => [...new Set(Object.values(analyses ?? {}).flatMap((a) => a.tokens.filter((t) => !t.isPunct).map((t) => t.gloss)))],
+    [analyses],
+  );
+
+  // Stage-up card: the first stage seen per profile+language is the baseline; any later rise is announced.
+  const [stageUp, setStageUp] = useState<Stage | null>(null);
+  useEffect(() => {
+    if (!learning || !meId || !analyses) return;
+    const key = stageKey(meId, learning);
+    const before = announcedStages.get(key);
+    announcedStages.set(key, view.stage);
+    if (isStageUp(before, view.stage)) setStageUp(view.stage);
+  }, [view.stage, learning, meId, analyses]);
+
+  // A received message on screen for ≥ 2.5 s is a view (PLAN.md §8.3): log it once per session.
+  const latest = useRef({ learning, analyses, meId, view });
+  latest.current = { learning, analyses, meId, view };
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken<Message>[] }) => {
+    const L = latest.current;
+    if (!L.learning || !L.meId) return;
+    for (const v of viewableItems) {
+      const m = v.item;
+      if (!m || m.senderId === L.meId || m.originalLanguage !== L.learning) continue;
+      const a = L.analyses?.[m.id];
+      const read = useLearner.getState().reads[m.id];
+      if (!a || a.failed || read?.viewed) continue;
+      const at = Date.now();
+      const plan = renderPlan(a.tokens, L.view.mastery, at, L.view.stage).tokens;
+      const ctx = { messageId: m.id, threadId: m.threadId, lang: m.originalLanguage as Lang, at };
+      logEvents(L.meId, viewEvents(a.tokens, plan, new Set(read?.tapped ?? []), ctx));
+      useLearner.getState().markViewed(m.id);
+    }
+  }).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60, minimumViewTime: VIEW_MS }).current;
+
   const analyzable = useMemo(
     () => (learning && meId ? annotatableIds(messages, meId, learning, now) : new Set<string>()),
     [messages, meId, learning, now],
@@ -161,6 +203,7 @@ export default function Conversation() {
           }
         />
       </View>
+      {stageUp && learning && <StageUpCard stage={stageUp} lang={learning} onDone={() => setStageUp(null)} />}
       {loadError && <Text style={styles.error}>Couldn't load this chat: {loadError}</Text>}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <FlatList
@@ -169,6 +212,8 @@ export default function Conversation() {
           keyExtractor={(m) => m.id}
           contentContainerStyle={{ paddingVertical: 8 }}
           extraData={view}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
           renderItem={({ item }) => {
             const pos = positions.get(item.id) ?? { first: true, last: true };
             const mine = item.senderId === me.id;
@@ -184,6 +229,7 @@ export default function Conversation() {
                   profileId={me.id}
                   now={now}
                   analyzable={analyzable.has(item.id)}
+                  guessPool={guessPool}
                 />
               );
             }

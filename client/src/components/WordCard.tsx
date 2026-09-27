@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { MessageAnalysis } from '../api/types';
 import { play, usePlayer } from '../audio/player';
@@ -18,10 +19,64 @@ interface Props {
   audioUrl: string | null;
   onSelect: (i: number) => void;
   onClose: () => void;
+  /** Challenge mode: four options first; the card opens after the answer. */
+  guess?: { options: string[]; onAnswer: (correct: boolean) => void };
+  /** "Hear it" was used (logs audio_play). */
+  onHear?: () => void;
 }
 
 /** The card under a bubble when a word is tapped (PLAN.md §7.5, US-3). */
-export function WordCard({ analysis, tokenIndex, lang, viewerLang, profileId, audioUrl, onSelect, onClose }: Props) {
+export function WordCard(props: Props) {
+  const { analysis, tokenIndex, lang, guess, onClose } = props;
+  const [answer, setAnswer] = useState<{ choice: string; correct: boolean } | null>(null);
+  const t = analysis.tokens[tokenIndex];
+  if (!t) return null;
+  if (guess && !answer) {
+    return (
+      <View style={styles.card}>
+        <View style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.label}>✦ Do you know this one?</Text>
+            <Text style={[scriptStyle(lang, 20), styles.word]}>{t.surface}</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close" hitSlop={8} style={styles.iconBtn} onPress={onClose}>
+            <Ionicons name="close" size={22} color={colors.textSecondary} />
+          </Pressable>
+        </View>
+        <View style={styles.options}>
+          {guess.options.map((o) => (
+            <Pressable
+              key={o}
+              accessibilityRole="button"
+              style={({ pressed }) => [styles.option, pressed && { backgroundColor: colors.heirloomTint }]}
+              onPress={() => {
+                const correct = o.trim().toLowerCase() === t.gloss.trim().toLowerCase();
+                setAnswer({ choice: o, correct });
+                guess.onAnswer(correct);
+              }}
+            >
+              <Text style={styles.optionText}>{o}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    );
+  }
+  return <WordDetails {...props} result={answer} />;
+}
+
+function WordDetails({
+  analysis,
+  tokenIndex,
+  lang,
+  viewerLang,
+  profileId,
+  audioUrl,
+  onSelect,
+  onClose,
+  onHear,
+  result,
+}: Props & { result: { choice: string; correct: boolean } | null }) {
   const openSheet = useSheet((s) => s.open);
   const t = analysis.tokens[tokenIndex];
   const phrase = t?.phraseId ? analysis.phrases.find((p) => p.id === t.phraseId) : undefined;
@@ -67,7 +122,10 @@ export function WordCard({ analysis, tokenIndex, lang, viewerLang, profileId, au
             accessibilityLabel="Hear it"
             hitSlop={8}
             style={styles.iconBtn}
-            onPress={() => play(hearKey, audioUrl as string, t.start, t.end)}
+            onPress={() => {
+              onHear?.();
+              void play(hearKey, audioUrl as string, t.start, t.end);
+            }}
           >
             <Ionicons name={playing ? 'volume-high' : 'volume-medium-outline'} size={22} color={colors.heirloom} />
           </Pressable>
@@ -77,6 +135,11 @@ export function WordCard({ analysis, tokenIndex, lang, viewerLang, profileId, au
         </Pressable>
       </View>
 
+      {result && (
+        <Text style={[styles.result, { color: result.correct ? colors.mastered : colors.fading }]}>
+          {result.correct ? '✓ You got it.' : `Not quite. It means "${t.gloss}".`}
+        </Text>
+      )}
       <View style={styles.section}>
         <TranslationText
           analysis={analysis}
@@ -132,4 +195,15 @@ const styles = StyleSheet.create({
   viewMore: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start', minHeight: 24 },
   viewMoreText: { color: colors.heirloom, fontFamily: fonts.semibold, fontSize: 14 },
   check: { marginTop: 8, fontSize: 11, fontFamily: fonts.regular, color: colors.textSecondary },
+  options: { marginTop: 10, gap: 8 },
+  option: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  optionText: { fontSize: 15, fontFamily: fonts.medium, color: colors.textPrimary },
+  result: { marginTop: 8, fontSize: 14, fontFamily: fonts.semibold },
 });

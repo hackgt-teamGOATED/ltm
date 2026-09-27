@@ -6,11 +6,17 @@ only when every done-criterion in PLAN.md §11 passed; add one line of notes.
 
 ## Now
 
-- **Current:** Phase 0 (Victor), Phase 1 (Lexi), Phase 2 (Sarosh) in parallel.
-- **Next checkpoint:** 9:30 PM. Passes when Phase 0 is done, `npm test` passes the parity fixtures,
-  and a real message gets a stored analysis with valid `tSpans`.
+- **Handoff (Sarosh → teammate):** Phases 0–5 are built and pushed as a stacked PR chain. Merge in order
+  #2 → #3 → #4 → #5 → #6 (each targets the one before). Next up: Phase 6 (Progress and practice), E
+  (evaluation charts), then Phase 7 (demo mode: slider; `readOnly` on `HeirloomMessage` is already there).
+- **Local setup works:** `npm run doctor` passes (Supabase key fixed) and `npm run dev` starts clean
+  (Expo web on :8081, API on :4000).
+- **Not done yet:** run `supabase/002_learning.sql` if the DB still has 4 profiles (it adds Zara as the 5th),
+  then `npm run seed:demo -- --reset` (dry run), then `npm run seed:demo -- --reset --yes`. Then live-check
+  Phases 2, 2b, 4 and 5 against real data (they were only checked on fixtures at `/dev/heirloom`).
 - **Freeze:** 2:30 AM Sunday. **Submit:** 5:00 AM (hard deadline 8:00 AM).
-- **Blockers:** Supabase secret key rejected (`Invalid Compact JWS`); run `supabase/002_learning.sql`. Urdu/Spanish native speaker to check hero messages.
+- **Blockers:** Urdu/Spanish native speaker to check hero messages (`server/src/scripts/heroMessages.json`,
+  flagged `nativeChecked: false`). iPhone recording spike (D-025).
 
 ## Phases
 
@@ -18,11 +24,11 @@ only when every done-criterion in PLAN.md §11 passed; add one line of notes.
 | --- | --- | --- | --- | --- |
 | 0 Foundations and spikes | Victor | 7:30 PM | built | Expo SDK 57 client, web export OK, STATIC_DIR serving, render.yaml. Needs: Render service + iPhone recording test |
 | 1 Learner package | Lexi | 9:00 PM | done | Built from PLAN §8 (no Python reference, D-020); 18 tests pass |
-| 2 Server learning layer | Sarosh | 9:30 PM | built | Typecheck + build pass; live check blocked on Supabase key + `002_learning.sql` |
-| 2b Seed script | Sarosh | 10:30 PM | built | Script + simulator + tests (arc Listener → Reader, D-024). Needs a live run: Supabase key + `002_learning.sql` |
+| 2 Server learning layer | Sarosh | 9:30 PM | built | Typecheck + build pass; key fixed, needs `002_learning.sql` + a live check |
+| 2b Seed script | Sarosh | 10:30 PM | built | Script + simulator + tests (arc Listener → Reader, D-024). Needs a live run: `002_learning.sql`, then the seed |
 | 3 Chat core | Victor | 9:30 PM | built | Chat list, conversation, bubbles, composer (text + voice), live updates, voice player. Needs: two-iPhone test |
 | 4 Heirloom layer | Victor + Sarosh | 11:30 PM | built | Chip, settings sheet, tappable transcript + translation, word card, View more, RTL, karaoke. Checked on fixtures (`/dev/heirloom`); needs live data + iPhone |
-| 5 The fade | Victor + Lexi | 12:45 AM | todo | |
+| 5 The fade | Victor + Lexi | 12:45 AM | built | Event logging (views ≥2.5 s, taps, guesses, show-translation, hear-it), optimistic queue, 4 stage layouts, gloss dissolve, stage-up card, read-on-your-own. Checked on fixtures; needs live data + iPhone |
 | 6 Progress and practice | Lexi | 1:45 AM | todo | |
 | E Evaluation charts (§10) | Lexi | 1:45 AM | todo | |
 | 7 Demo mode and polish | Victor + Sarosh | 2:30 AM | todo | |

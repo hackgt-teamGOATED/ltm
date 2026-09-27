@@ -4,6 +4,8 @@ import { create } from 'zustand';
 export interface Selection {
   messageId: string;
   tokenIndex: number;
+  /** Opened from a challenge word: ask before revealing. */
+  guess?: boolean;
 }
 
 interface SelectionState {

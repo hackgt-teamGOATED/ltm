@@ -29,10 +29,12 @@ interface BubbleProps {
   footer?: ReactNode;
   /** Tap on the bubble itself (not on a word). */
   onPress?: () => void;
+  /** Long-press (Conversant/Fluent: reveal the translation). */
+  onLongPress?: () => void;
 }
 
 /** Bubble shell: gradient when sent, grey when received, 18px radius with a 4px tail corner on the group's last bubble. */
-export function Bubble({ mine, pos, children, heirloom, footer, onPress }: BubbleProps) {
+export function Bubble({ mine, pos, children, heirloom, footer, onPress, onLongPress }: BubbleProps) {
   // The sender's side is squared off where bubbles join and at the tail (bottom of the group's last bubble).
   const corners = mine
     ? { borderTopRightRadius: pos.first ? radius.bubble : radius.tail, borderBottomRightRadius: radius.tail }
@@ -46,7 +48,7 @@ export function Bubble({ mine, pos, children, heirloom, footer, onPress }: Bubbl
       ]}
     >
       <View style={{ maxWidth: '80%' }}>
-        <Pressable onPress={onPress} disabled={!onPress} accessible={false}>
+        <Pressable onPress={onPress} onLongPress={onLongPress} delayLongPress={450} disabled={!onPress && !onLongPress} accessible={false}>
           {mine ? (
             <LinearGradient colors={[colors.bubbleSentTop, colors.bubbleSentBottom]} style={shape}>
               {children}
