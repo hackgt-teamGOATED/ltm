@@ -1,62 +1,57 @@
 ## Inspiration
 
-Translation apps are amazing, and they have a quiet side effect: they keep you dependent on them. Someone talking to a grandparent, or a close friend, across a language gap gets the message instantly and learns nothing. A year later they still need the translate button as much as on day one.
+Heirloom started with Victor's family.
 
-We wanted to flip that. If you are already reading a real conversation with someone you care about, that conversation is the best language course you will ever get: personal, motivating, and full of the words that actually matter to you. It just needs software that notices what you understand and gradually steps back.
+*"My grandmother came to the U.S. as an immigrant many years ago, with my dad, from Ishigaki, Okinawa. Over time my dad lost touch with her culture. He can't speak her native language, only recall a few familiar words, and there's a real disconnect with a mother who is deeply proud of her Japanese roots.*
 
-So we built Heirloom around one idea: **translation that fades, fluency that stays.**
+*As her grandson, I feel that gap too. I want to be confident enough to practice Japanese with her, and I believe that if I were, I'd feel more connected to a side of myself I wish I could embrace more. She speaks English, so we can talk. But a translator would never help me actually join her language.*
+
+*And it isn't only families. Friends and colleagues across a language gap want the same thing, in a setting that feels convenient and empowering."*
+
+Translation apps solve the message and skip the person: you get the meaning, learn nothing, and still need the translate button a year later. We wanted the opposite. A real conversation with someone you care about is the best language course there is. It just needs software that notices what you understand and gradually steps back.
 
 ## What it does
 
-Heirloom is a messenger where one person writes in English and the other reads in Spanish or Urdu, and back. Text and voice notes are translated, transcribed, and read aloud in the recipient's language. For the person on the other side it is just a normal chat.
+Heirloom is a messenger where one person writes in English and the other reads in Spanish or Urdu, and back. Text and voice notes are translated, transcribed and read aloud. For the other person it is just a normal chat.
 
-For the learner, turning on Heirloom for a chat adds a learning layer:
+For the learner, turning Heirloom on adds a learning layer:
 
-- **Tap any word** to get a card with its meaning, grammar and cultural context. The matching word lights up in the translation, and it works right-to-left in Urdu (Nastaliq script). "View more" adds usage notes and examples from the learner's own chats.
-- **Every interaction is a signal.** Reading a message without help, tapping a word, answering a quick guess, or replaying a voice note tells a per-word memory model what you know.
-- **The interface fades with you.** Each language has four stages: Listener (translation first), Reader (original first, translation one tap away), Conversant (original only, long-press for help), and Fluent. When a word becomes truly known, its hint dissolves with a small "You know this now" moment.
-- **A Progress tab** shows Mastered, Learning and New words per language, and how much of what you receive you can now read on your own.
-- **A time-travel slider** replays an eight-week event log through the real model, so you can watch the translation fade from week 1 to week 8.
+- **Tap any word** for its meaning, grammar and cultural context. The matching word lights up in the translation, in both left-to-right and right-to-left (Urdu) text.
+- **Everything you do teaches the model:** reading without help, tapping, answering a quick guess, replaying a voice note.
+- **The translation fades with you.** Listener, Reader, Conversant, Fluent: each stage shows a little less help, and a word's hint dissolves once you truly know it.
+- **A Progress tab** shows Mastered, Learning and New words, and a **time-travel slider** replays eight weeks through the real model so you can watch the fade happen.
 
 ## How we built it
 
-- **Client:** Expo / React Native for web, with expo-router, Zustand and Reanimated, built as a static web app that runs on an iPhone in Safari.
-- **Server:** Node and Express with Socket.IO for live message updates, and Supabase (Postgres plus a private storage bucket) for chats, learning events and voice notes.
-- **AI pipeline:** Whisper transcribes voice notes; GPT-4o-mini translates and breaks every message into words with lemma, romanization, meaning and the matching words in the translation; OpenAI text-to-speech reads translations aloud.
-- **The learner model:** a per-word, per-skill (recognize, script, produce) half-life-regression memory model in its own pure-TypeScript package, with no database or network calls. The **same code** runs on the server, in the client, in the slider replay and in our evaluation, so what you see in the demo is the model itself, not a mock.
-- **A key design rule:** the LLM is a sensor and the model is the brain. The language model only annotates messages; it never decides what to hide. That decision belongs to the learner model.
-- **Evaluation:** a seeded simulation of 200 learners over eight weeks compares Heirloom's fade policy against a no-fade baseline and a simple counting rule.
-
-We deployed it as a single Render service that serves the API, the sockets and the web app from one HTTPS address.
+- **App:** Expo / React Native for web, running on an iPhone in Safari, backed by Node, Express and Socket.IO for live updates, and Supabase for chats, voice notes and learning data.
+- **AI pipeline:** Whisper transcribes voice notes, GPT-4o-mini translates and breaks each message into words (meaning, romanization, matching translation words), and OpenAI text-to-speech reads translations aloud.
+- **The learner model:** a per-word, per-skill half-life-regression memory model in a pure TypeScript package. The same code powers the server, the app, the slider and our evaluation, so the demo is the model itself.
+- **A design rule we held to:** the language model only annotates; the learner model decides what to hide.
 
 ## Challenges we ran into
 
-- **Making a fading interface trustworthy.** Hiding help too early strands the learner; too late and the app does nothing. Because hints only give weak evidence of knowing a word, our model is deliberately strict about what counts as mastered (strong recall, stable over at least a week, shown on at least two different days).
-- **Word-to-word mapping.** Models are unreliable at character offsets. So the model returns the words and our server computes every position itself, then validates that the annotated words rejoin into the exact original text.
-- **Messy voice transcripts.** A garbled Whisper transcript once made the model leave out a single word, and our validator rejected the whole message. We changed it to keep skipped words as plain text and reject an analysis only when a large share of the message is skipped.
-- **Urdu.** Right-to-left text with nested tappable words, Nastaliq line heights, and romanization that must never sit inside the wrong text direction.
-- **Being realistic.** Our first seeded learner reached fluency in eight weeks. That is not believable, so we reset the story to a Listener who becomes a Reader by week eight.
-- **iPhone Safari.** Recording, audio playback and touch behavior all had to be designed for a real phone browser.
+- **Trusting a fade.** Removing help too early strands the learner. So "mastered" is strict: strong recall, stable for a week, shown on two different days.
+- **Exact word mapping.** Language models drift on character positions, so our server computes them itself and checks that the annotated words rebuild the original message exactly.
+- **Messy voice transcripts,** where a garbled word can break an annotation. We now keep skipped words as plain text instead of throwing the whole message away.
+- **Urdu:** right-to-left text with tappable words and Nastaliq script.
+- **Realism.** Our first simulated learner reached fluency in eight weeks. We reset the story to a Listener becoming a Reader.
 
 ## Accomplishments that we're proud of
 
-- **A working end-to-end product, live on a public HTTPS link you can open on a phone:** live two-way messaging in English, Spanish and Urdu, voice notes with word-by-word highlighting, and a learning layer you can actually feel.
-- **A single model behind everything.** The interface, the slider and the evaluation all run the same learner package, so the demo is honest.
-- **An honest evaluation.** In our simulation of 200 learners, Heirloom's fade policy learned about the same number of words as a simple counting rule (37.6 versus 37.7 of 120) and more than no fade at all (34.0). The real difference was in the decision to stop helping: Heirloom removed a hint the learner could not yet recall 10 times out of 17,529 decisions, versus 1,101 out of 21,426 for the counting rule. We did not tune the simulation until we won; we reported the tie and added a measure that shows what actually separates the two.
-- **The other person's chat stays simple.** A grandparent sees a normal conversation, and gets to feel the learner reaching back in their language.
+- **A working product on a public link** you can open on a phone: live two-way chat in English, Spanish and Urdu, voice notes, and a learning layer you can feel.
+- **One model behind everything,** so what you see is honest.
+- **An honest evaluation.** In a simulation of 200 learners, Heirloom learned about as many words as a simple counting rule (37.6 vs 37.7 of 120) and more than no fade (34.0). The real gap is in when to stop helping: Heirloom removed a hint a learner couldn't yet recall 10 times in 17,529 decisions, the counting rule 1,101 times in 21,426. We reported the tie rather than tune the simulation to win.
+- **The other person's chat stays simple,** and they get to see someone reaching toward their language.
 
 ## What we learned
 
-- Learning signals should never get in the way of talking. Everything in the learning layer is optional, and curiosity (tapping a word) is never penalized.
-- Structured outputs, validated by code, make an LLM a dependable part of a system, as long as the code owns the parts that must be exact.
-- A model you can replay is easy to trust. The time-travel slider turned an abstract memory model into something a person can watch.
-- Reporting a result we did not expect (a tie) was more convincing than a tuned win.
-- Testing on a real phone early matters more than any amount of desktop polish.
+- Learning should never get in the way of talking. Everything is optional, and curiosity is never penalized.
+- A language model is dependable when it produces structured output and our code owns everything that must be exact.
+- A model you can replay is one people trust. The slider made an abstract memory model something you can watch.
 
 ## What's next for Heirloom
 
-- **A native-speaker review** of the Spanish and Urdu annotations. The seeded demo history is simulated and the hero messages have not yet been checked by a native speaker.
-- **Real learners.** Fit the model's constants to real usage instead of our hand-set values, and run a study with heritage speakers.
-- **Practice.** A short, optional daily quiz that updates the word lists, plus word audio in the lists.
-- **More languages** (Hindi is already in the stack), and group chats.
-- **A layer, not an app:** Heirloom is designed to slot into an existing translated messenger, so people who already talk across a language gap can start learning without switching apps.
+- **Japanese,** the language that started this. It has no spaces between words, so it needs its own word-splitting work first, and a native-speaker check.
+- **Native-speaker review** of our Spanish and Urdu annotations. The seeded history in the demo is simulated.
+- **Real learners:** fit the model to real usage and run a study with heritage speakers, plus a short daily practice quiz.
+- **A layer, not an app:** Heirloom is built to slot into a messenger people already use, so anyone talking across a language gap can start learning without switching apps.
