@@ -196,6 +196,21 @@ test('weekBuckets: empty log, single event, and a log longer than the cap', () =
   assert.equal(weekBuckets(long).length, 8, 'never more steps than the cap');
 });
 
+test('weekBuckets: a log shorter than a week, and a cluster at one timestamp, collapse to one step', () => {
+  const short = [evAt(NOW - 2 * DAY_MS), evAt(NOW - DAY_MS), evAt(NOW)];
+  assert.deepEqual(weekBuckets(short), [NOW], 'under a week is a single step ending at the last event');
+  const cluster = [evAt(NOW), evAt(NOW, 'b'), evAt(NOW, 'c')];
+  assert.deepEqual(weekBuckets(cluster), [NOW], 'zero span is still one usable step');
+});
+
+test('weekBuckets: cut-offs stay strictly increasing even when the log is capped', () => {
+  const long = Array.from({ length: 30 }, (_, i) => evAt(NOW - (29 - i) * WEEK_MS));
+  const weeks = weekBuckets(long);
+  assert.equal(weeks.length, 8);
+  assert.ok(weeks.every((w, i) => i === 0 || w > weeks[i - 1]), `no two steps collide: ${weeks}`);
+  assert.equal(weeks.at(-1), NOW, 'the last step still covers the final event');
+});
+
 test('replay at each week cut-off never loses ground: mastery only grows across the arc', () => {
   const start = NOW - 8 * WEEK_MS;
   const events: LearningEvent[] = [];

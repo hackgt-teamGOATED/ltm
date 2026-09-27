@@ -13,6 +13,10 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 let backoff = FLUSH_MS;
 let flushing = false;
 /** Set by the demo slider (Phase 7): replaying history must never log events. */
+// Module-global, not per-screen: the demo panel sets it while replaying and the chat screen's unmount
+// cleanup clears it. That works because the only way out of a chat is popping back to the list. If chat →
+// chat navigation is ever added without popping, clear this on route change instead, or replay would
+// leave logging switched off for the rest of the session.
 let paused = false;
 
 export function setLoggingPaused(p: boolean) {
