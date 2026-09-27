@@ -94,16 +94,29 @@ export interface EventContext {
  * on their own (plus script evidence when romanization was hidden). Challenge words wait for the guess, and
  * words already tapped in this message don't count as read unaided. One event per lemma per view.
  */
-export function viewEvents(tokens: Token[], plan: TokenPlan[], tapped: ReadonlySet<string>, ctx: EventContext): LearningEvent[] {
+export function viewEvents(
+  tokens: Token[],
+  plan: TokenPlan[],
+  tapped: ReadonlySet<string>,
+  ctx: EventContext,
+): LearningEvent[] {
   const out: LearningEvent[] = [];
   const seen = new Set<string>();
   tokens.forEach((t, idx) => {
     const p = plan[idx];
     if (t.isPunct || !p || p.challenge || seen.has(t.lemma)) return;
     seen.add(t.lemma);
-    const base = { lemma: t.lemma, lang: ctx.lang, at: ctx.at, form: t.surface.toLowerCase(), messageId: ctx.messageId, threadId: ctx.threadId };
+    const base = {
+      lemma: t.lemma,
+      lang: ctx.lang,
+      at: ctx.at,
+      form: t.surface.toLowerCase(),
+      messageId: ctx.messageId,
+      threadId: ctx.threadId,
+    };
     if (p.hint || p.partialHint) out.push({ ...base, type: 'exposure_hinted' });
-    else if (!tapped.has(t.lemma)) out.push({ ...base, type: 'read_unaided', ...(t.romanization ? { romanizationShown: p.romanization } : {}) });
+    else if (!tapped.has(t.lemma))
+      out.push({ ...base, type: 'read_unaided', ...(t.romanization ? { romanizationShown: p.romanization } : {}) });
   });
   return out;
 }
@@ -118,7 +131,14 @@ export function showTranslationEvents(tokens: Token[], plan: TokenPlan[], ctx: E
     const p = plan[idx];
     if (!t.isPunct && p && !p.hint && !p.partialHint && !p.challenge) lemmas.add(t.lemma);
   });
-  return [...lemmas].map((lemma) => ({ lemma, lang: ctx.lang, at: ctx.at, type: 'show_translation', messageId: ctx.messageId, threadId: ctx.threadId }));
+  return [...lemmas].map((lemma) => ({
+    lemma,
+    lang: ctx.lang,
+    at: ctx.at,
+    type: 'show_translation',
+    messageId: ctx.messageId,
+    threadId: ctx.threadId,
+  }));
 }
 
 /** Four options for an in-chat guess: the right gloss plus 3 others, in a stable order per word. */
@@ -128,7 +148,9 @@ export function guessOptions(answer: string, pool: string[], seed: string): stri
     for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
     return h >>> 0;
   };
-  const others = [...new Set(pool.map((g) => g.trim()).filter((g) => g && g.toLowerCase() !== answer.trim().toLowerCase()))]
+  const others = [
+    ...new Set(pool.map((g) => g.trim()).filter((g) => g && g.toLowerCase() !== answer.trim().toLowerCase())),
+  ]
     .sort((a, b) => hash(seed + a) - hash(seed + b))
     .slice(0, 3);
   return [answer, ...others].sort((a, b) => hash(`${seed}|${a}`) - hash(`${seed}|${b}`));
@@ -136,12 +158,38 @@ export function guessOptions(answer: string, pool: string[], seed: string): stri
 
 /** Lemmas that are mastered now but weren't before (the gloss-dissolve moment). */
 export function newlyMastered(before: Mastery, after: Mastery, lemmas: string[], now: number): string[] {
-  return [...new Set(lemmas)].filter((l) => status(after[l], now) === 'mastered' && status(before[l], now) !== 'mastered');
+  return [...new Set(lemmas)].filter(
+    (l) => status(after[l], now) === 'mastered' && status(before[l], now) !== 'mastered',
+  );
 }
 
 /** True when `next` is a later stage than `prev` (stage-up card). */
 export const isStageUp = (prev: Stage | undefined, next: Stage) =>
   prev !== undefined && STAGES.indexOf(next) > STAGES.indexOf(prev);
+
+export const WEEK_MS = 7 * 24 * 60 * 60_000;
+/** Most weeks the slider will offer, so a long log can't produce an unusable strip of buttons. */
+export const MAX_DEMO_WEEKS = 8;
+
+/**
+ * Week cut-offs for the time-travel slider (PLAN.md §9.2): `weeks[i]` is the moment week `i + 1` ends,
+ * so `replay(events, weeks[i])` is mastery as of the end of that week. Weeks run forward from the first
+ * event, and the last one always covers the final event, so week N shows the whole log.
+ */
+export function weekBuckets(events: LearningEvent[], maxWeeks = MAX_DEMO_WEEKS): number[] {
+  if (!events.length) return [];
+  let first = Number.POSITIVE_INFINITY;
+  let last = Number.NEGATIVE_INFINITY;
+  for (const e of events) {
+    if (e.at < first) first = e.at;
+    if (e.at > last) last = e.at;
+  }
+  const span = Math.max(last - first, 1);
+  const count = Math.min(maxWeeks, Math.max(1, Math.ceil(span / WEEK_MS)));
+  const step = span / count;
+  // Round up to the millisecond so a boundary event lands inside its own week rather than the next one.
+  return Array.from({ length: count }, (_, i) => (i === count - 1 ? last : Math.ceil(first + step * (i + 1))));
+}
 
 /**
  * Fading words were mastered once and have slipped, so the Progress lists show them with Learning

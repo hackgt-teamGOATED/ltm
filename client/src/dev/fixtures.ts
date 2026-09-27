@@ -1,4 +1,4 @@
-// Sample messages and analyses for the dev fixtures page (EXPO_PUBLIC_DEV_FIXTURES=1). Not used in the app.
+// Sample messages and analyses for the dev fixtures page (dev builds only). Not used in the app.
 import type { Mastery } from '@heirloom/learner';
 import type { Message, MessageAnalysis, Span, Token } from '../api/types';
 

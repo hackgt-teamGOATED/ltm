@@ -2,7 +2,7 @@
 // Run: npm test -w client (Node's built-in runner; Node 23+ runs TypeScript directly).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { applyEvents, DAY_MS, type LearningEvent, type Stage, type TokenPlan } from '@heirloom/learner';
+import { applyEvents, DAY_MS, type LearningEvent, type Mastery, replay, type Stage, type TokenPlan } from '@heirloom/learner';
 import type { Message, MessageAnalysis } from '../api/types.ts';
 import {
   annotatableIds,
@@ -15,6 +15,8 @@ import {
   mergeAnalyses,
   newlyMastered,
   showTranslationEvents,
+  WEEK_MS,
+  weekBuckets,
   tapEventType,
   viewEvents,
   voiceSource,
@@ -173,6 +175,109 @@ test('newlyMastered + isStageUp', () => {
   assert.equal(isStageUp('listener', 'reader'), true);
   assert.equal(isStageUp('reader', 'reader'), false);
   assert.equal(isStageUp(undefined, 'reader'), false);
+});
+
+// ---- Phase 7: time travel ----
+
+const evAt = (at: number, lemma = 'a', lang: 'es' | 'ur' = 'es'): LearningEvent => ({ lemma, lang, type: 'read_unaided', at });
+
+test('weekBuckets: one cut-off per week, last one covers the final event', () => {
+  const start = NOW - 8 * WEEK_MS;
+  // 9 events one week apart span exactly 8 weeks end to end.
+  const events = Array.from({ length: 9 }, (_, i) => evAt(start + i * WEEK_MS));
+  const weeks = weekBuckets(events);
+  assert.equal(weeks.length, 8);
+  assert.ok(weeks.every((w, i) => i === 0 || w > weeks[i - 1]), 'strictly increasing');
+  assert.equal(weeks.at(-1), Math.max(...events.map((e) => e.at)), 'last week includes every event');
+});
+
+test('weekBuckets: empty log, single event, and a log longer than the cap', () => {
+  assert.deepEqual(weekBuckets([]), []);
+  assert.deepEqual(weekBuckets([evAt(NOW)]), [NOW]);
+  const long = Array.from({ length: 30 }, (_, i) => evAt(NOW - (29 - i) * WEEK_MS));
+  assert.equal(weekBuckets(long).length, 8, 'never more steps than the cap');
+});
+
+test('weekBuckets: a log shorter than a week, and a cluster at one timestamp, collapse to one step', () => {
+  const short = [evAt(NOW - 2 * DAY_MS), evAt(NOW - DAY_MS), evAt(NOW)];
+  assert.deepEqual(weekBuckets(short), [NOW], 'under a week is a single step ending at the last event');
+  const cluster = [evAt(NOW), evAt(NOW, 'b'), evAt(NOW, 'c')];
+  assert.deepEqual(weekBuckets(cluster), [NOW], 'zero span is still one usable step');
+});
+
+test('weekBuckets: cut-offs stay strictly increasing even when the log is capped', () => {
+  const long = Array.from({ length: 30 }, (_, i) => evAt(NOW - (29 - i) * WEEK_MS));
+  const weeks = weekBuckets(long);
+  assert.equal(weeks.length, 8);
+  assert.ok(weeks.every((w, i) => i === 0 || w > weeks[i - 1]), `no two steps collide: ${weeks}`);
+  assert.equal(weeks.at(-1), NOW, 'the last step still covers the final event');
+});
+
+test('replay at each week cut-off never loses ground: mastery only grows across the arc', () => {
+  const start = NOW - 8 * WEEK_MS;
+  const events: LearningEvent[] = [];
+  // One word introduced per week, each reinforced on two later days so it can actually reach mastery.
+  for (let w = 0; w < 8; w++) {
+    const lemma = `w${w}`;
+    events.push(evAt(start + w * WEEK_MS, lemma));
+    events.push({ lemma, lang: 'es', type: 'guess_correct', at: start + w * WEEK_MS + 2 * DAY_MS, options: 4 });
+    events.push({ lemma, lang: 'es', type: 'guess_correct', at: start + w * WEEK_MS + 5 * DAY_MS, options: 4 });
+  }
+  const weeks = weekBuckets(events);
+  const seen = weeks.map((until) => Object.keys(replay(events, until, 'es')).length);
+  assert.ok(seen.every((n, i) => i === 0 || n >= seen[i - 1]), `tracked words never shrink: ${seen}`);
+  assert.ok(seen.at(-1)! > seen[0], 'the arc actually moves');
+});
+
+test('replay is scoped by language: Urdu events never enter the Spanish snapshot', () => {
+  const events = [evAt(NOW - WEEK_MS, 'hola', 'es'), evAt(NOW - WEEK_MS, 'salaam', 'ur')];
+  assert.deepEqual(Object.keys(replay(events, NOW, 'es')), ['hola']);
+  assert.deepEqual(Object.keys(replay(events, NOW, 'ur')), ['salaam']);
+});
+
+test('replay ignores everything after the cut-off', () => {
+  const events = [evAt(NOW - 2 * WEEK_MS, 'early'), evAt(NOW - 1, 'late')];
+  assert.deepEqual(Object.keys(replay(events, NOW - WEEK_MS, 'es')), ['early']);
+  assert.equal(Object.keys(replay(events, NOW, 'es')).length, 2);
+});
+
+test("scrubbing must clear the replay stage memory, or a rewound week inherits the later week's stage", () => {
+  // Two snapshots either side of the Reader threshold (0.30), inside the 0.05 hysteresis band:
+  // week 7 at 0.28 (Listener on its own), week 8 at 0.33 (Reader).
+  const lemmas = Array.from({ length: 100 }, (_, i) => `w${i}`);
+  const masteryOf = (n: number): Mastery =>
+    Object.fromEntries(
+      lemmas.slice(0, n).map((l) => [
+        l,
+        applyEvents({}, [
+          { lemma: l, lang: 'es', type: 'read_unaided', at: NOW - 6 * DAY_MS },
+          { lemma: l, lang: 'es', type: 'guess_correct', at: NOW - 3 * DAY_MS, options: 4 },
+          { lemma: l, lang: 'es', type: 'guess_correct', at: NOW - DAY_MS, options: 4 },
+        ]).mastery[l],
+      ]),
+    );
+  const week7 = masteryOf(28);
+  const week8 = masteryOf(33);
+  const key = 'p:es';
+  const pick = (m: Mastery, stages: Map<string, Stage>) => {
+    const v = computeView(m, lemmas, NOW, key, stages);
+    stages.set(key, v.stage); // what useLanguageView does on every render
+    return v.stage;
+  };
+
+  assert.equal(pick(week7, new Map()), 'listener', 'week 7 on its own is below Reader');
+  assert.equal(pick(week8, new Map()), 'reader', 'week 8 is Reader');
+
+  // The hazard: keeping one map across picks makes the answer depend on click order.
+  const carried = new Map<string, Stage>();
+  pick(week8, carried);
+  assert.equal(pick(week7, carried), 'reader', 'carried hysteresis wrongly holds week 7 at Reader');
+
+  // What store/demo.ts does instead: clear on every setWeek, so each week stands alone.
+  const cleared = new Map<string, Stage>();
+  pick(week8, cleared);
+  cleared.clear();
+  assert.equal(pick(week7, cleared), 'listener', 'clearing restores the honest stage for week 7');
 });
 
 test('learningBucket/learningCount: fading words sit with Learning, once, and are never lost', () => {

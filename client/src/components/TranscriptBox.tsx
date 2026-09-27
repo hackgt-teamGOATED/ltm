@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   },
   q: { color: colors.heirloom, fontFamily: fonts.semibold },
   selected: { backgroundColor: colors.heirloomHighlight, color: colors.textPrimary },
-  speaking: { backgroundColor: '#FFE9B8', color: colors.textPrimary },
+  speaking: { backgroundColor: colors.heirloomKaraoke, color: colors.textPrimary },
   gloss: { color: colors.heirloom, fontFamily: fonts.medium, writingDirection: 'ltr' },
   roman: { color: colors.textSecondary, fontFamily: fonts.regular, writingDirection: 'ltr' },
 });
