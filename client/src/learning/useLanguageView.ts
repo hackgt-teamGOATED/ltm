@@ -15,22 +15,35 @@ export interface LanguageView {
   mastery: Mastery;
 }
 
-/** `now` is passed in so a demo slider can render any moment (Phase 7). */
+export interface ViewOverride {
+  /** Mastery to render instead of the live store (the demo slider replays the event log into this). */
+  mastery: Mastery;
+  /** Separate hysteresis memory, so replay can never change how the live chat renders afterwards. */
+  stages: Map<string, Stage>;
+}
+
+/**
+ * `now` is passed in so the demo slider can render any moment (PLAN.md §9.2). Pass `override` to render
+ * a replayed snapshot: it reads nothing from and writes nothing to the live learner store.
+ */
 export function useLanguageView(
   lang: string | null,
   messages: Message[],
   analyses: Record<string, MessageAnalysis> | undefined,
   meId: string,
   now: number,
+  override?: ViewOverride,
 ): LanguageView {
-  const mastery = useLearner((s) => (lang ? s.mastery[masteryKey(meId, lang)] : undefined)) ?? EMPTY;
+  const live = useLearner((s) => (lang ? s.mastery[masteryKey(meId, lang)] : undefined)) ?? EMPTY;
+  const mastery = override?.mastery ?? live;
+  const stages = override?.stages ?? previousStages;
   const view = useMemo(() => {
     if (!lang) return { stage: 'listener' as Stage, readableShare: 0, fadePct: 0, mastery };
     const key = stageKey(meId, lang);
-    const v = computeView(mastery, recentLemmas(messages, analyses, meId, lang), now, key, previousStages);
-    previousStages.set(key, v.stage); // shared hysteresis memory (see store/learner.ts)
+    const v = computeView(mastery, recentLemmas(messages, analyses, meId, lang), now, key, stages);
+    stages.set(key, v.stage); // hysteresis memory: the shared map live, a throwaway map while replaying
     return { ...v, mastery };
-  }, [messages, analyses, mastery, meId, lang, now]);
+  }, [messages, analyses, mastery, meId, lang, now, stages]);
 
   return view;
 }

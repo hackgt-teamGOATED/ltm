@@ -13,10 +13,13 @@ export const colors = {
   heirloomTint: '#FBF3E4',
   /** Selected word / matching translation words: must read clearly on the grey received bubble. */
   heirloomHighlight: '#F5DDA8',
+  /** Karaoke: the word being spoken right now. Lighter than the selection so the two never read alike. */
+  heirloomKaraoke: '#FFE9B8',
   mastered: '#2E9E6B',
   fading: '#D9822B',
   danger: '#D93025',
   overlay: 'rgba(0,0,0,0.35)',
+  divider: 'rgba(0,0,0,0.08)',
 } as const;
 
 export const radius = { bubble: 18, tail: 4, card: 14, pill: 999 } as const;

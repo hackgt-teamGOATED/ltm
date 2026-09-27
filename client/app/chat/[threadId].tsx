@@ -13,14 +13,16 @@ import { ChatSettingsSheet } from '../../src/components/ChatSettingsSheet';
 import { HeirloomChip } from '../../src/components/HeirloomChip';
 import { HeirloomMessage } from '../../src/components/HeirloomMessage';
 import { PlainMessage } from '../../src/components/PlainMessage';
-import { type Lang, renderPlan, type Stage } from '@heirloom/learner';
+import { type Lang, renderPlan, type Stage, status } from '@heirloom/learner';
 import { StageUpCard } from '../../src/components/StageUpCard';
 import { logEvents } from '../../src/learning/eventQueue';
-import { annotatableIds, isStageUp, VIEW_MS, viewEvents } from '../../src/learning/logic';
+import { annotatableIds, isStageUp, recentLemmas, VIEW_MS, viewEvents } from '../../src/learning/logic';
 import { useLanguageView } from '../../src/learning/useLanguageView';
 import { stageKey, subscribeMastery, useLearner } from '../../src/store/learner';
 import { useSelection } from '../../src/store/selection';
 import { useSheet } from '../../src/store/sheet';
+import { DemoPanel } from '../../src/components/DemoPanel';
+import { demoMastery, demoNow, demoStages, useDemo } from '../../src/store/demo';
 import { useMe } from '../../src/store/session';
 import { subscribeThread, useThreads } from '../../src/store/threads';
 import { colors, fonts } from '../../src/theme/tokens';
@@ -43,7 +45,7 @@ function groupPositions(list: Message[]): Map<string, GroupPos> {
 }
 
 export default function Conversation() {
-  const { threadId } = useLocalSearchParams<{ threadId: string }>();
+  const { threadId, demo: demoParam } = useLocalSearchParams<{ threadId: string; demo?: string }>();
   const me = useMe();
   const router = useRouter();
   const thread = useThreads((s) => s.threads.find((t) => t.id === threadId));
@@ -57,6 +59,12 @@ export default function Conversation() {
   const loadAnalyses = useThreads((s) => s.loadAnalyses);
   const openSheet = useSheet((s) => s.open);
   const clearSelection = useSelection((s) => s.select);
+  const demoActive = useDemo((s) => s.active);
+  const demoWeek = useDemo((s) => s.week);
+  const demoWeeks = useDemo((s) => s.weeks);
+  const demoEvents = useDemo((s) => s.events);
+  const openDemo = useDemo((s) => s.open);
+  const closeDemo = useDemo((s) => s.close);
   const [loadError, setLoadError] = useState<string | null>(null);
   // The clock the learner model renders against; ticks each minute (Phase 7's slider will override it).
   const [now, setNow] = useState(() => Date.now());
@@ -97,7 +105,16 @@ export default function Conversation() {
   useEffect(() => {
     clearSelection(null);
   }, [threadId, learning, clearSelection]);
-  const view = useLanguageView(learning, messages, analyses, meId ?? '', now);
+  // Time travel (PLAN.md §9.2): the chosen week's cut-off becomes the clock, and mastery is replayed
+  // from the event log into a throwaway snapshot. Messages don't change, only how they render.
+  const replaying = demoActive && demoWeek !== null;
+  const renderNow = demoActive ? demoNow(demoWeek, demoWeeks, now) : now;
+  const replayed = useMemo(
+    () => (replaying ? demoMastery(demoWeek, demoWeeks, demoEvents, learning) : undefined),
+    [replaying, demoWeek, demoWeeks, demoEvents, learning],
+  );
+  const override = useMemo(() => (replayed ? { mastery: replayed, stages: demoStages } : undefined), [replayed]);
+  const view = useLanguageView(learning, messages, analyses, meId ?? '', renderNow, override);
   // Distractors for in-chat guesses: every gloss seen in this chat.
   const guessPool = useMemo(
     () => [...new Set(Object.values(analyses ?? {}).flatMap((a) => a.tokens.filter((t) => !t.isPunct).map((t) => t.gloss)))],
@@ -107,19 +124,19 @@ export default function Conversation() {
   // Stage-up card: the first stage seen per profile+language is the baseline; any later rise is announced.
   const [stageUp, setStageUp] = useState<Stage | null>(null);
   useEffect(() => {
-    if (!learning || !meId || !analyses) return;
+    if (!learning || !meId || !analyses || demoActive) return; // replay never announces a stage-up
     const key = stageKey(meId, learning);
     const before = announcedStages.get(key);
     announcedStages.set(key, view.stage);
     if (isStageUp(before, view.stage)) setStageUp(view.stage);
-  }, [view.stage, learning, meId, analyses]);
+  }, [view.stage, learning, meId, analyses, demoActive]);
 
   // A received message on screen for ≥ 2.5 s is a view (PLAN.md §8.3): log it once per session.
-  const latest = useRef({ learning, analyses, meId, view });
-  latest.current = { learning, analyses, meId, view };
+  const latest = useRef({ learning, analyses, meId, view, demoActive });
+  latest.current = { learning, analyses, meId, view, demoActive };
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken<Message>[] }) => {
     const L = latest.current;
-    if (!L.learning || !L.meId) return;
+    if (!L.learning || !L.meId || L.demoActive) return;
     for (const v of viewableItems) {
       const m = v.item;
       if (!m || m.senderId === L.meId || m.originalLanguage !== L.learning) continue;
@@ -136,9 +153,29 @@ export default function Conversation() {
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 60, minimumViewTime: VIEW_MS }).current;
 
   const analyzable = useMemo(
-    () => (learning && meId ? annotatableIds(messages, meId, learning, now) : new Set<string>()),
-    [messages, meId, learning, now],
+    () => (learning && meId ? annotatableIds(messages, meId, learning, renderNow) : new Set<string>()),
+    [messages, meId, learning, renderNow],
   );
+
+  // Mastered / tracked words in this chat, for the demo readout (follows the slider through `view`).
+  const trackedLemmas = useMemo(
+    () => (learning ? recentLemmas(messages, analyses, meId ?? '', learning) : []),
+    [messages, analyses, meId, learning],
+  );
+  const masteredCount = useMemo(
+    () => new Set(trackedLemmas.filter((l) => status(view.mastery[l], renderNow) === 'mastered')).size,
+    [trackedLemmas, view.mastery, renderNow],
+  );
+
+  const showDemo = useCallback(() => {
+    if (meId) openDemo(meId);
+  }, [meId, openDemo]);
+  // `?demo=1` opens it without the long-press (handy on a laptop while filming).
+  useEffect(() => {
+    if (demoParam === '1' && meId && !demoActive) openDemo(meId);
+  }, [demoParam, meId, demoActive, openDemo]);
+  // Leaving the chat must not strand the app in replay.
+  useEffect(() => () => closeDemo(), [closeDemo]);
 
   // Deep link or reload straight into a chat: the thread list (and so the header) isn't loaded yet.
   const haveThread = Boolean(thread);
@@ -190,6 +227,7 @@ export default function Conversation() {
           lang={learning}
           stage={view.stage}
           fadePct={view.fadePct}
+          onLongPress={showDemo}
           onPress={() =>
             openSheet(
               <ChatSettingsSheet
@@ -203,7 +241,18 @@ export default function Conversation() {
           }
         />
       </View>
-      {stageUp && learning && <StageUpCard stage={stageUp} lang={learning} onDone={() => setStageUp(null)} />}
+      {demoActive && (
+        <DemoPanel
+          lang={learning}
+          stage={view.stage}
+          fadePct={view.fadePct}
+          mastered={masteredCount}
+          tracked={new Set(trackedLemmas).size}
+        />
+      )}
+      {stageUp && learning && !demoActive && (
+        <StageUpCard stage={stageUp} lang={learning} onDone={() => setStageUp(null)} />
+      )}
       {loadError && <Text style={styles.error}>Couldn't load this chat: {loadError}</Text>}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <FlatList
@@ -227,9 +276,10 @@ export default function Conversation() {
                   view={view}
                   viewerLang={me.language}
                   profileId={me.id}
-                  now={now}
+                  now={renderNow}
                   analyzable={analyzable.has(item.id)}
                   guessPool={guessPool}
+                  readOnly={demoActive}
                 />
               );
             }
