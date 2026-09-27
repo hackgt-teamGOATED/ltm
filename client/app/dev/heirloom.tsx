@@ -7,7 +7,7 @@ import { ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeirloomChip } from '../../src/components/HeirloomChip';
 import { HeirloomMessage } from '../../src/components/HeirloomMessage';
-import { esAnalysis, esMessage, fixtureMastery, urAnalysis, urMessage } from '../../src/dev/fixtures';
+import { esAnalysis, esMessage, esVoiceMessage, fixtureMastery, urAnalysis, urMessage } from '../../src/dev/fixtures';
 import { useSelection } from '../../src/store/selection';
 import { colors, fonts } from '../../src/theme/tokens';
 
@@ -34,6 +34,7 @@ export default function HeirloomFixtures() {
         <Text style={styles.h}>Heirloom fixtures ({stage})</Text>
         <HeirloomChip enabled lang="es" stage={stage} fadePct={12} onPress={() => {}} />
         <HeirloomMessage m={esMessage} pos={{ first: true, last: true }} analysis={esAnalysis} view={view} viewerLang="en" profileId="fx" now={now} analyzable guessPool={POOL} readOnly />
+        <HeirloomMessage m={esVoiceMessage} pos={{ first: true, last: true }} analysis={esAnalysis} view={view} viewerLang="en" profileId="fx" now={now} analyzable guessPool={POOL} readOnly />
         <HeirloomMessage
           m={urMessage}
           pos={{ first: true, last: true }}

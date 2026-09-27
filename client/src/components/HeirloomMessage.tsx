@@ -5,16 +5,17 @@ import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } fro
 import type { Message, MessageAnalysis } from '../api/types';
 import { usePlayer } from '../audio/player';
 import { logEvents } from '../learning/eventQueue';
-import { guessOptions, showTranslationEvents, tapEventType, voiceSource } from '../learning/logic';
+import { guessOptions, showTranslationEvents, tapEventType } from '../learning/logic';
 import type { LanguageView } from '../learning/useLanguageView';
 import { DISSOLVE_MS, masteryKey, useLearner } from '../store/learner';
 import { useSelection } from '../store/selection';
 import { colors, fonts } from '../theme/tokens';
 import { Bubble, type GroupPos, StatusLine } from './MessageBubble';
+import { LangSection, SectionDivider } from './LangSection';
 import { PlainMessage } from './PlainMessage';
 import { TranscriptBox } from './TranscriptBox';
 import { TranslationText } from './TranslationText';
-import { type VoiceSource, VoicePlayer } from './VoicePlayer';
+import { VoicePlayer } from './VoicePlayer';
 import { WordCard } from './WordCard';
 
 interface Props {
@@ -38,8 +39,10 @@ const NO_LEMMAS: ReadonlySet<string> = new Set();
 /**
  * A received message in a chat where Heirloom is on (PLAN.md §7.4–§7.5). The layout follows the learner's
  * stage in this language (never per bubble):
- *   Listener    translation first, the original small and tappable underneath
- *   Reader      original first, translation collapsed behind "Show translation"
+ * Every layout puts the original first (its own voice note + tappable text, labeled), then the translation as a
+ * second labeled section (its own voice note + text, and the word card with idioms and context):
+ *   Listener    both sections shown
+ *   Reader      translation collapsed behind "Show translation"
  *   Conversant  original only; long-press the bubble for the translation
  *   Fluent      original only; long-press stays as the safety net
  * Every interaction becomes a learning event (PLAN.md §8.3), applied locally at once and synced.
@@ -51,10 +54,8 @@ export function HeirloomMessage(props: Props) {
   const markTap = useLearner((s) => s.markTap);
   const read = useLearner((s) => s.reads[m.id]);
   const justMastered = useLearner((s) => s.justMastered[masteryKey(profileId, m.originalLanguage)]);
-  const [override, setOverride] = useState<VoiceSource | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
   const [answered, setAnswered] = useState<string | null>(null); // `${messageId}:${tokenIndex}` of the last guess
-  const source = voiceSource(override, view.stage);
   const speaking = usePlayer((s) => {
     if (s.key !== `${m.id}:original` || !s.playing || !analysis) return null;
     const t = analysis.tokens.find((x) => x.start !== undefined && x.end !== undefined && s.position >= x.start && s.position < x.end);
@@ -150,24 +151,14 @@ export function HeirloomMessage(props: Props) {
       speaking={speaking}
       onPressToken={tapOriginal}
       onSent={false}
-      size={listener ? 14 : 16}
+      size={16}
       dissolving={dissolving}
     />
   );
 
-  return (
-    <View>
-      {dissolving.size > 0 && <KnowThisNow />}
-      <Bubble
-        mine={false}
-        pos={pos}
-        heirloom
-        onPress={() => select(null)}
-        onLongPress={longPressOnly ? revealTranslation : undefined}
-        footer={
-          <>
-            {readAlone && <Text style={styles.readAlone}>✦ Read on your own</Text>}
-            {selection && t ? (
+  const translationVisible = listener || showTranslation;
+  const wordCard =
+    selection && t ? (
               <WordCard
                 key={`${m.id}:${selected}:${selection.guess ? 'g' : 'c'}`}
                 analysis={analysis}
@@ -201,43 +192,41 @@ export function HeirloomMessage(props: Props) {
                     : undefined
                 }
               />
-            ) : null}
-          </>
-        }
+            ) : null;
+
+  return (
+    <View>
+      {dissolving.size > 0 && <KnowThisNow />}
+      <Bubble
+        mine={false}
+        pos={pos}
+        heirloom
+        onPress={() => select(null)}
+        onLongPress={longPressOnly ? revealTranslation : undefined}
       >
-        {m.kind === 'voice' && (
-          <VoicePlayer
-            messageId={m.id}
-            onSent={false}
-            source={source}
-            onSourceChange={setOverride}
-            urls={{ translated: translatedAudio, original: m.audioUrl }}
-          />
+        <LangSection kind="Original" lang={lang}>
+          {m.kind === 'voice' && <VoicePlayer messageId={m.id} onSent={false} source="original" url={m.audioUrl} />}
+          {original}
+        </LangSection>
+        {reader && (
+          <Text onPress={revealTranslation} style={styles.toggle} suppressHighlighting>
+            {showTranslation ? 'Hide translation' : 'Show translation'}
+          </Text>
         )}
-        <View style={m.kind === 'voice' ? { marginTop: 6 } : undefined}>
-          {listener ? (
-            <>
+        {translationVisible && (
+          <>
+            <SectionDivider />
+            <LangSection kind="Translation" lang={viewerLang}>
+              {m.kind === 'voice' && (
+                <VoicePlayer messageId={m.id} onSent={false} source="translated" url={translatedAudio} pending={!translatedAudio && m.status === 'processing'} />
+              )}
               {translation}
-              <View style={styles.divider} />
-              {original}
-            </>
-          ) : (
-            <>
-              {original}
-              {reader && (
-                <Text onPress={revealTranslation} style={styles.toggle} suppressHighlighting>
-                  {showTranslation ? 'Hide translation' : 'Show translation'}
-                </Text>
-              )}
-              {showTranslation && (
-                <>
-                  <View style={styles.divider} />
-                  {translation}
-                </>
-              )}
-            </>
-          )}
-        </View>
+              {wordCard}
+            </LangSection>
+          </>
+        )}
+        {!translationVisible && wordCard}
+        {readAlone && <Text style={styles.readAlone}>✦ Read on your own</Text>}
         <StatusLine m={m} mine={false} />
       </Bubble>
     </View>

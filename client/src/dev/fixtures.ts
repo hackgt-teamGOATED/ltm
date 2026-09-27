@@ -95,6 +95,14 @@ const msg = (id: string, text: string, lang: string, translation: string, sender
 
 export const esMessage = msg('fx-es', esText, 'es', esTr);
 export const urMessage = msg('fx-ur', urText, 'ur', urTr);
+/** The Spanish message as a voice note with both recordings (the URLs are placeholders; nothing plays). */
+export const esVoiceMessage: Message = {
+  ...esMessage,
+  id: 'fx-es-voice',
+  kind: 'voice',
+  audioUrl: 'data:,',
+  translations: [{ language: 'en', text: esTr, audioUrl: 'data:,' }],
+};
 
 /** A learner who has mastered "hola" and "mijo" and is learning "mucho". */
 export function fixtureMastery(now: number): Mastery {
