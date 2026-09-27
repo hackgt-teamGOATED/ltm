@@ -151,7 +151,7 @@ export function HeirloomMessage(props: Props) {
       speaking={speaking}
       onPressToken={tapOriginal}
       onSent={false}
-      size={16}
+      size={17}
       dissolving={dissolving}
     />
   );

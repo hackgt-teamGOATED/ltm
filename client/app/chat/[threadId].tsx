@@ -25,7 +25,8 @@ import { DemoPanel } from '../../src/components/DemoPanel';
 import { demoMastery, demoNow, demoStages, useDemo } from '../../src/store/demo';
 import { useMe } from '../../src/store/session';
 import { subscribeThread, useThreads } from '../../src/store/threads';
-import { colors, fonts } from '../../src/theme/tokens';
+import { dividerLabel, needsDivider } from '../../src/lib/format';
+import { colors, fonts, type } from '../../src/theme/tokens';
 
 const GROUP_GAP_MS = 5 * 60_000;
 /** Last stage announced per profile+language (the first one seen is the baseline, not a stage-up). */
@@ -215,7 +216,7 @@ export default function Conversation() {
         >
           <Ionicons name="chevron-back" size={28} color={colors.bubbleSentTop} />
         </Pressable>
-        {other && <Avatar id={other.id} name={other.displayName} size={36} />}
+        {other && <Avatar id={other.id} name={other.displayName} size={40} />}
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={styles.name} numberOfLines={1}>
             {other?.displayName ?? ''}
@@ -263,13 +264,18 @@ export default function Conversation() {
           extraData={view}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             const pos = positions.get(item.id) ?? { first: true, last: true };
             const mine = item.senderId === me.id;
             // Heirloom annotates only what I receive in the language I'm learning here.
+            const divider = needsDivider(reversed[index + 1]?.createdAt, item.createdAt) ? (
+              <Text style={styles.divider}>{dividerLabel(item.createdAt)}</Text>
+            ) : null;
             if (!mine && learning && item.originalLanguage === learning) {
               return (
-                <HeirloomMessage
+                <>
+                  {divider}
+                  <HeirloomMessage
                   m={item}
                   pos={pos}
                   analysis={analyses?.[item.id]}
@@ -280,10 +286,16 @@ export default function Conversation() {
                   analyzable={analyzable.has(item.id)}
                   guessPool={guessPool}
                   readOnly={demoActive}
-                />
+                  />
+                </>
               );
             }
-            return <PlainMessage m={item} mine={mine} pos={pos} viewerLang={me.language} />;
+            return (
+              <>
+                {divider}
+                <PlainMessage m={item} mine={mine} pos={pos} viewerLang={me.language} />
+              </>
+            );
           }}
         />
         <Composer onSendText={sendText} onSendVoice={sendVoice} />
@@ -302,8 +314,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.hairline,
+    backgroundColor: 'rgba(255,255,255,0.92)',
   },
-  name: { fontSize: 16, fontFamily: fonts.semibold, color: colors.textPrimary },
-  active: { fontSize: 12, fontFamily: fonts.regular, color: colors.textSecondary },
+  name: { fontSize: type.body, fontFamily: fonts.semibold, letterSpacing: type.headingSpacing, color: colors.textPrimary },
+  active: { fontSize: type.meta, fontFamily: fonts.regular, color: colors.textTertiary },
+  divider: { alignSelf: 'center', marginTop: 16, marginBottom: 4, fontSize: type.caption, fontFamily: fonts.medium, color: colors.textTertiary },
   error: { padding: 12, color: colors.danger, fontFamily: fonts.regular },
 });

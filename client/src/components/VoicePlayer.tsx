@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
 import { play, usePlayer } from '../audio/player';
-import { colors } from '../theme/tokens';
+import { colors, fonts, PRESSED_OPACITY, tabular } from '../theme/tokens';
 
 const BARS = 28;
 
@@ -17,6 +17,9 @@ function bars(seed: string): { id: string; x: number; h: number }[] {
     return { id: `bar${i}`, x: i, h: 0.25 + 0.75 * env * ((h % 1000) / 1000) };
   });
 }
+
+/** m:ss */
+const clock = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
 
 export type VoiceSource = 'translated' | 'original';
 
@@ -35,6 +38,8 @@ export function VoicePlayer({ messageId, onSent, source, url, pending }: Props) 
   const playing = usePlayer((s) => s.key === key && s.playing);
   const loading = usePlayer((s) => s.key === key && s.loading);
   const progress = usePlayer((s) => (s.key === key && s.duration ? s.position / s.duration : 0));
+  const position = usePlayer((s) => (s.key === key ? s.position : 0));
+  const duration = usePlayer((s) => (s.key === key ? s.duration : 0));
   const heights = useMemo(() => bars(messageId), [messageId]);
   const fg = onSent ? colors.textOnSent : colors.textPrimary;
   const dim = onSent ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.25)';
@@ -48,7 +53,11 @@ export function VoicePlayer({ messageId, onSent, source, url, pending }: Props) 
           disabled={!url}
           hitSlop={5}
           onPress={() => url && play(key, url)}
-          style={[styles.btn, { backgroundColor: onSent ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.07)' }]}
+          style={({ pressed }) => [
+            styles.btn,
+            { backgroundColor: onSent ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.07)' },
+            pressed && { opacity: PRESSED_OPACITY },
+          ]}
         >
           {pending || (active && loading) ? (
             <ActivityIndicator size="small" color={fg} />
@@ -69,6 +78,9 @@ export function VoicePlayer({ messageId, onSent, source, url, pending }: Props) 
             />
           ))}
         </Svg>
+        {active && duration > 0 && (
+          <Text style={[styles.time, tabular, { color: fg }]}>{clock(playing || position > 0 ? position : duration)}</Text>
+        )}
       </View>
     </View>
   );
@@ -76,5 +88,6 @@ export function VoicePlayer({ messageId, onSent, source, url, pending }: Props) 
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  time: { fontSize: 13, fontFamily: fonts.medium, opacity: 0.7 },
   btn: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
 });
