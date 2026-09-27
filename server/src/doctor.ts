@@ -46,10 +46,38 @@ async function main() {
     bad('SUPABASE_URL has the wrong shape', 'It should be exactly https://<project-ref>.supabase.co with nothing after .co');
   else ok('SUPABASE_URL looks right');
 
+  // Key shape. Reports only a verdict (never any part of the key), so the common copy-paste mix-ups are named.
+  const WHERE = 'Supabase → Project Settings → API Keys: click Reveal on the Secret key (sb_secret_…), copy it, then npm run setup -- --reset.';
+  const jwtParts = sbKey.split('.');
+  const jwtRole = (() => {
+    if (jwtParts.length !== 3) return null;
+    try {
+      return JSON.parse(Buffer.from(jwtParts[1], 'base64url').toString()) as { role?: string; ref?: string };
+    } catch {
+      return null;
+    }
+  })();
+  const urlRef = /^https:\/\/([a-z0-9-]+)\.supabase\.co/.exec(url)?.[1];
   if (!sbKey) bad('SUPABASE_SERVICE_ROLE_KEY is empty');
+  else if (/[\s"'•*…]/.test(sbKey))
+    bad('The Supabase key contains spaces, quotes, "…" or masking dots (•/*)', `It was copied masked or with extra characters. ${WHERE}`);
   else if (sbKey.startsWith('sb_publishable_'))
-    bad('SUPABASE_SERVICE_ROLE_KEY is the publishable (public) key', 'Use the Secret key (sb_secret_…) or legacy service_role key.');
-  else ok('Supabase server key is set');
+    bad('SUPABASE_SERVICE_ROLE_KEY is the publishable (public) key', WHERE);
+  else if (sbKey.startsWith('sb_secret_')) {
+    if (sbKey.length < 40) bad('The sb_secret_ key looks cut short', WHERE);
+    else ok('Supabase server key is set (new-style secret key)');
+  } else if (jwtRole) {
+    if (jwtRole.role !== 'service_role')
+      bad(`The Supabase key is a JWT with role "${jwtRole.role ?? '?'}", not service_role (probably the anon key)`, WHERE);
+    else if (urlRef && jwtRole.ref && jwtRole.ref !== urlRef)
+      bad('The service_role key belongs to a different Supabase project than SUPABASE_URL', WHERE);
+    else ok('Supabase server key is set (legacy service_role JWT)');
+  } else {
+    bad(
+      'The Supabase key is neither an sb_secret_ key nor a JWT (usually the "JWT Secret" was copied by mistake)',
+      WHERE,
+    );
+  }
 
   if (!oaKey) bad('OPENAI_API_KEY is empty');
   else if (oaKey.startsWith('sk-sk-')) bad('OPENAI_API_KEY starts with "sk-sk-"', 'Remove the duplicated "sk-" prefix.');
@@ -63,13 +91,23 @@ async function main() {
   const supabase = createClient(url.replace(/\/+$/, ''), sbKey, { auth: { persistSession: false } });
 
   const profiles = await supabase.from('profiles').select('id', { count: 'exact', head: true });
-  if (profiles.error)
-    bad(`Supabase query failed: ${profiles.error.message}`, 'Run supabase/001_init.sql and supabase/seed.sql in the Supabase SQL editor.');
+  if (profiles.error && (profiles.status === 401 || profiles.status === 403))
+    bad(
+      `Supabase rejected the key (HTTP ${profiles.status})`,
+      'The key has the right shape but this project does not accept it: it is from a different project than SUPABASE_URL, or it was deleted/rotated. Copy both the Project URL and the Secret key from the same project, then npm run setup -- --reset.',
+    );
+  else if (profiles.error)
+    bad(
+      `Supabase query failed (HTTP ${profiles.status}): ${profiles.error.message || profiles.error.code || 'no message'}`,
+      'Run supabase/001_init.sql and supabase/seed.sql in the Supabase SQL editor.',
+    );
   else if (!profiles.count) bad('Database has no profiles', 'Run supabase/seed.sql in the Supabase SQL editor.');
   else ok(`Supabase connected (${profiles.count} profiles)`);
 
-  const bucket = await supabase.storage.getBucket(process.env.AUDIO_BUCKET ?? 'audio');
-  if (bucket.error) bad(`Audio storage bucket missing: ${bucket.error.message}`, 'Re-run supabase/001_init.sql.');
+  const keyRejected = profiles.status === 401 || profiles.status === 403;
+  const bucket = keyRejected ? null : await supabase.storage.getBucket(process.env.AUDIO_BUCKET ?? 'audio');
+  if (!bucket) console.log('  - Audio storage bucket not checked (fix the key first)');
+  else if (bucket.error) bad(`Audio storage bucket missing: ${bucket.error.message}`, 'Re-run supabase/001_init.sql.');
   else ok('Audio storage bucket exists');
 
   const { default: OpenAI } = await import('openai');
