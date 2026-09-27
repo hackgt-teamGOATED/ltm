@@ -35,7 +35,7 @@ const toProfile = (p: ProfileRow): Profile => ({ id: p.id, displayName: p.displa
 
 const room = (threadId: string) => `thread:${threadId}`;
 
-async function uploadAudio(path: string, audio: Buffer, contentType: string) {
+export async function uploadAudio(path: string, audio: Buffer, contentType: string) {
   const { error } = await supabase.storage.from(env.AUDIO_BUCKET).upload(path, audio, { contentType, upsert: true });
   if (error) throw new Error(`Audio upload failed: ${error.message}`);
 }
@@ -195,6 +195,18 @@ async function processText(io: Server, row: MessageRow, targets: string[]) {
 
 // ---------- voice messages ----------
 
+/** Storage path for a voice note's audio: the original, or the translation into `name` (a language code). */
+export const voicePath = (threadId: string, messageId: string, name: string, ext = 'mp3') =>
+  `${threadId}/${messageId}/${name}.${ext}`;
+
+/** Voice translation step shared by the live pipeline and the demo seed: translate → speak → upload. */
+export async function translateVoice(threadId: string, messageId: string, text: string, from: string, to: string) {
+  const translated = await translate(text, from, to);
+  const audioPath = voicePath(threadId, messageId, to);
+  await uploadAudio(audioPath, await synthesize(translated, to), 'audio/mpeg');
+  return { language: to, text: translated, audio_path: audioPath };
+}
+
 const AUDIO_TYPES: Record<string, string> = {
   'audio/webm': 'webm',
   'video/webm': 'webm',
@@ -224,7 +236,7 @@ export async function createVoiceMessage(
   const { ext, contentType } = audioType(file.mimetype);
 
   const id = randomUUID();
-  const path = `${threadId}/${id}/original.${ext}`;
+  const path = voicePath(threadId, id, 'original', ext);
   await uploadAudio(path, file.buffer, contentType);
 
   const row = must<MessageRow>(
@@ -266,11 +278,8 @@ async function processVoice(
     // 2. Text → each recipient language → speech
     const translations = await Promise.all(
       targets.map(async (language) => {
-        const translated = await translate(text, row.original_language, language);
-        const speech = await synthesize(translated, language);
-        const audioPath = `${row.thread_id}/${row.id}/${language}.mp3`;
-        await uploadAudio(audioPath, speech, 'audio/mpeg');
-        return { message_id: row.id, language, text: translated, audio_path: audioPath };
+        const t = await translateVoice(row.thread_id, row.id, text, row.original_language, language);
+        return { message_id: row.id, ...t };
       }),
     );
     if (translations.length) must(await supabase.from('message_translations').insert(translations));

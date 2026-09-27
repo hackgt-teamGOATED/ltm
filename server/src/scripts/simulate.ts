@@ -74,10 +74,11 @@ export function simulateLearner(messages: SimMessage[], seed: number, start: num
   let stage: Stage | null = null;
   const seen: SimMessage[] = [];
 
-  const pKnow = (lemma: string, now: number) => {
+  // Recall probability of the hidden memory at `at` (never above 1, even for a word touched a moment ago).
+  const pKnow = (lemma: string, at: number) => {
     const m = memory.get(lemma);
     if (!m) return 0;
-    return 2 ** (-(now - m.last) / DAY_MS / m.halfLife);
+    return Math.min(1, 2 ** (-Math.max(0, at - m.last) / DAY_MS / m.halfLife));
   };
   const touch = (lemma: string, now: number, kind: keyof typeof BEHAVIOR.gain) => {
     const m = memory.get(lemma);
@@ -90,8 +91,12 @@ export function simulateLearner(messages: SimMessage[], seed: number, start: num
     m.last = now;
     m.contacts += 1;
   };
+  // Events are stamped strictly increasing, so the server's replay (sorted by time) applies them in the
+  // same order as this simulation did and the rebuilt mastery matches the printed stages.
+  let lastAt = Number.NEGATIVE_INFINITY;
   const emit = (e: Omit<LearningEvent, 'lang'>) => {
-    const ev = { ...e, lang: lang as Lang };
+    lastAt = Math.max(e.at, lastAt + 1);
+    const ev = { ...e, at: lastAt, lang: lang as Lang };
     events.push(ev);
     mastery = applyEvents(mastery, [ev]).mastery;
   };
@@ -151,11 +156,13 @@ export function simulateLearner(messages: SimMessage[], seed: number, start: num
 
     const plan = renderPlan(msg.tokens, mastery, now, stage);
     const base = { messageId: msg.id, threadId: msg.threadId };
+    const handled = new Set<string>(); // like the app, log each word once per message view
     msg.tokens.forEach((t, idx) => {
-      if (t.isPunct) return;
+      if (t.isPunct || handled.has(t.lemma)) return;
+      handled.add(t.lemma);
       const p = plan.tokens[idx];
-      const know = rand() < pKnow(t.lemma, now);
       const at = now + idx * 1000;
+      const know = rand() < pKnow(t.lemma, at);
       const form = t.surface?.toLowerCase();
       if (p.challenge) {
         emit({ ...base, lemma: t.lemma, form, type: know ? 'guess_correct' : 'guess_wrong', at, options: 4 });
@@ -178,16 +185,19 @@ export function simulateLearner(messages: SimMessage[], seed: number, start: num
     if (msg.kind === 'voice' && rand() < BEHAVIOR.audioPlayRate) {
       const words = msg.tokens.filter((t) => !t.isPunct);
       const w = words[Math.floor(rand() * words.length)];
-      if (w) emit({ ...base, lemma: w.lemma, type: 'audio_play', at: now + 60_000 });
+      if (w) emit({ ...base, lemma: w.lemma, type: 'audio_play', at: now + 30_000 });
     }
   }
   snapshotWeeks(end);
   return { events, weekly };
 }
 
+/** Start of the 8-week demo window: midnight UTC, 8 weeks before `end`. Used for scheduling AND simulation. */
+export const windowStart = (end: number) => Math.floor((end - 8 * 7 * DAY_MS) / DAY_MS) * DAY_MS;
+
 /** Spreads each week's lines over that week's days: strictly increasing, the last one 2 hours before `end`. */
 export function scheduleTimes(weeks: number[], end: number): number[] {
-  const start = Math.floor((end - 8 * 7 * DAY_MS) / DAY_MS) * DAY_MS; // midnight UTC, 8 weeks back
+  const start = windowStart(end);
   const out: number[] = [];
   for (let w = 1; w <= 8; w++) {
     const idxs = weeks.flatMap((wk, i) => (wk === w ? [i] : []));
@@ -197,6 +207,8 @@ export function scheduleTimes(weeks: number[], end: number): number[] {
     });
   }
   for (let i = 1; i < out.length; i++) out[i] = Math.max(out[i], out[i - 1] + 5 * 60_000);
-  const shift = Math.max(0, out[out.length - 1] - (end - 2 * 3600_000));
-  return out.map((t) => t - shift);
+  // Only the trailing messages that would land within 2 hours of `end` are pulled back (keeping order);
+  // everything else stays in its script week.
+  for (let i = out.length - 1, cap = end - 2 * 3600_000; i >= 0 && out[i] > cap; i--, cap -= 5 * 60_000) out[i] = cap;
+  return out;
 }
