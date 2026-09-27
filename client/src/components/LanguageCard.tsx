@@ -56,7 +56,7 @@ export function LanguageCard({ lang, stage, fadePct, mastered, learning, fresh, 
               transform={`rotate(-90 ${SIZE / 2} ${SIZE / 2})`}
             />
           </Svg>
-          <View style={styles.ringLabel} pointerEvents="none">
+          <View style={[styles.ringLabel, { pointerEvents: 'none' }]}>
             <Text style={[styles.ringPct, tabular]}>{pct}%</Text>
             <Text style={styles.ringCaption}>faded</Text>
           </View>
