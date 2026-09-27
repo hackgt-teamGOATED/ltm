@@ -20,9 +20,8 @@ export function textFor(m: Message, viewerLang: string): string {
 export function preview(m: Message | undefined, viewerLang: string, meId: string): string {
   if (!m) return 'Say hello';
   const who = m.senderId === meId ? 'You: ' : '';
-  if (m.kind === 'voice' && !m.originalText) return `${who}🎤 Voice note`;
-  const body = textFor(m, viewerLang);
-  return `${who}${m.kind === 'voice' ? '🎤 ' : ''}${body}`;
+  if (m.kind === 'voice' && !m.originalText) return `${who}Voice note`;
+  return `${who}${textFor(m, viewerLang)}`;
 }
 
 /** Centered divider in a conversation: "Today 9:41 PM", "Yesterday 9:41 PM", "Mon 9:41 PM", "Sep 3, 9:41 PM". */
