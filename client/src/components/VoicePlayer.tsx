@@ -48,6 +48,7 @@ export function VoicePlayer({ messageId, onSent, source, onSourceChange, urls, p
           accessibilityRole="button"
           accessibilityLabel={playing ? 'Pause voice note' : 'Play voice note'}
           disabled={!url}
+          hitSlop={5}
           onPress={() => url && play(key, url)}
           style={[styles.btn, { backgroundColor: onSent ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.07)' }]}
         >
@@ -74,7 +75,7 @@ export function VoicePlayer({ messageId, onSent, source, onSourceChange, urls, p
       {canToggle && (
         <View style={styles.toggle}>
           {(['translated', 'original'] as const).map((s) => (
-            <Pressable key={s} onPress={() => onSourceChange?.(s)} accessibilityRole="button" hitSlop={6}>
+            <Pressable key={s} onPress={() => onSourceChange?.(s)} accessibilityRole="button" hitSlop={14}>
               <Text style={[styles.toggleText, { color: fg, opacity: s === source ? 1 : 0.55 }]}>
                 {s === 'translated' ? 'Translated' : 'Their voice'}
               </Text>

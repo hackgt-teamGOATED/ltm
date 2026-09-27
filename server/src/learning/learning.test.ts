@@ -219,6 +219,8 @@ test('safeErr logs name/code/status only', async () => {
   const err = Object.assign(new Error('user said: ZQXJ-private-marker'), { code: 'rate_limit', status: 429 });
   assert.equal(safeErr(err), 'Error code=rate_limit status=429');
   assert.equal(safeErr('boom'), 'string');
+});
+
 // ---- CORS origins (PR #3 review #8) ----
 
 test('originAllowed: listed origins always; private-network origins only in dev', async () => {

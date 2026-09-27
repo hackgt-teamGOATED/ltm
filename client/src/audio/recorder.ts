@@ -1,5 +1,6 @@
-// Voice-note recording with expo-audio (PLAN.md §7.7). On web expo-audio wraps MediaRecorder:
-// iOS Safari records audio/mp4, Chrome audio/webm; both are accepted by the server and Whisper.
+// Native voice-note recording with expo-audio (PLAN.md §7.7): records .m4a (AAC), which Whisper accepts.
+// The web build uses recorder.web.ts (MediaRecorder) instead. Neither has been verified on a real phone
+// yet: the Phase 0 iPhone spike is still open (D-025).
 import {
   RecordingPresets,
   requestRecordingPermissionsAsync,
@@ -9,7 +10,7 @@ import {
 } from 'expo-audio';
 import { useCallback, useState } from 'react';
 
-export type RecorderPhase = 'idle' | 'starting' | 'recording' | 'stopping';
+import type { RecorderPhase } from './recorderTypes';
 
 export function useVoiceRecorder() {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);

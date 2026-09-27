@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  mic: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  mic: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   input: {
     flex: 1,
     minHeight: 38,
@@ -122,6 +122,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   recording: { flex: 1, color: colors.danger, fontFamily: fonts.medium, fontSize: 15 },
-  send: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  send: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   error: { color: colors.danger, fontFamily: fonts.regular, fontSize: 13, paddingHorizontal: 8, paddingBottom: 4 },
 });
