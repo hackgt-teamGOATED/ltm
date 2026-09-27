@@ -33,7 +33,11 @@ npm run setup      # run this yourself, not through an agent: it asks for keys
 npm run dev
 ```
 
-Then open http://localhost:5173/split.html.
+Then open http://localhost:8081 (the Heirloom Expo app; the API and sockets run on :4000).
+Pick a person, or go straight in with `http://localhost:8081/?as=arjun` (`abuela`, `zara`).
+
+The v0 Vite client is still here as a fallback: `npm run dev:v0` serves it on http://localhost:5173,
+including the split-screen view below.
 
 `npm run setup` checks Node, saves your keys to `~/.config/heritage-chat/server.env`
 (outside the repo, readable only by you), installs dependencies, installs a git hook that
@@ -64,7 +68,11 @@ blocks committing keys, and runs `npm run doctor`.
 
 ## Seeing both sides
 
-- **Split screen:** `/split.html?left=Arjun&right=Nani` loads two copies of the app, one per person.
+- **Heirloom app:** open two windows (or a normal and a private window) at
+  `http://localhost:8081/?as=arjun` and `http://localhost:8081/?as=abuela`. Each device remembers its
+  person. On a phone on the same Wi-Fi, use `http://<laptop-ip>:8081`: in dev the API accepts any
+  local-network origin. Voice recording still needs HTTPS, so for voice use the Render URL or a tunnel.
+- **Split screen (v0 only, `npm run dev:v0`):** `/split.html?left=Arjun&right=Nani` loads two copies of the app, one per person.
   Best for building and for recording the demo video. `/split.html?left=Arjun&right=Dada` does the
   same for Urdu (right-to-left Nastaliq).
 - **Separate windows:** any URL accepts `?as=Nani` (name or profile id). Without it, each tab

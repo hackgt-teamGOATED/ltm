@@ -29,7 +29,10 @@ function required(name: string): string {
 
 export const env = {
   PORT: Number(process.env.PORT ?? 4000),
-  WEB_ORIGIN: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
+  // Dev origins allowed by CORS: the v0 Vite client (5173) and the Expo web dev server (8081).
+  WEB_ORIGIN: process.env.WEB_ORIGIN ?? 'http://localhost:5173,http://localhost:8081',
+  // Built web client to serve in production, relative to the repo root (e.g. client/dist).
+  STATIC_DIR: process.env.STATIC_DIR ?? '',
   // Accept a pasted REST endpoint: strip a trailing /rest/v1 and slashes.
   SUPABASE_URL: required('SUPABASE_URL').replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, ''),
   SUPABASE_SERVICE_ROLE_KEY: required('SUPABASE_SERVICE_ROLE_KEY'),
