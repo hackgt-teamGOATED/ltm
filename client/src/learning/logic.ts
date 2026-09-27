@@ -142,3 +142,18 @@ export function newlyMastered(before: Mastery, after: Mastery, lemmas: string[],
 /** True when `next` is a later stage than `prev` (stage-up card). */
 export const isStageUp = (prev: Stage | undefined, next: Stage) =>
   prev !== undefined && STAGES.indexOf(next) > STAGES.indexOf(prev);
+
+/**
+ * Fading words were mastered once and have slipped, so the Progress lists show them with Learning
+ * rather than in a list of their own — a word that slipped must never be hidden from the learner.
+ * Used for both the counts and the rows so the card and the detail screen can't drift apart.
+ */
+export function learningBucket<T>(
+  buckets: Partial<Record<WordStatus, T[]>>,
+): T[] {
+  return [...(buckets.learning ?? []), ...(buckets.fading ?? [])];
+}
+
+/** The same merge for counts. */
+export const learningCount = (counts: Partial<Record<WordStatus, number>>): number =>
+  (counts.learning ?? 0) + (counts.fading ?? 0);

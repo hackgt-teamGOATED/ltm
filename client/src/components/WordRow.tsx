@@ -1,13 +1,11 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { WordRowData } from '../api/types';
 import { isRtl } from '../lib/cast';
-import { colors, fonts, radius } from '../theme/tokens';
+import { colors, fonts } from '../theme/tokens';
 
 interface Props {
   word: WordRowData;
   lang: string;
-  /** "Hear it": server TTS. Omitted when the platform has no voice for this language. */
-  onPlay?: () => void;
 }
 
 const DOT: Record<string, string> = {
@@ -18,7 +16,7 @@ const DOT: Record<string, string> = {
 };
 
 /** One word in a Progress list (PLAN.md §7.2, US-7): word, romanization, meaning, recall. */
-export function WordRow({ word, lang, onPlay }: Props) {
+export function WordRow({ word, lang }: Props) {
   const rtl = isRtl(lang);
   return (
     <View style={styles.row}>
@@ -37,17 +35,6 @@ export function WordRow({ word, lang, onPlay }: Props) {
         </Text>
       </View>
       <Text style={styles.recall}>{Math.round(word.recall * 100)}%</Text>
-      {onPlay && (
-        <Pressable
-          onPress={onPlay}
-          hitSlop={10}
-          style={styles.play}
-          accessibilityRole="button"
-          accessibilityLabel={`Hear ${word.surface}`}
-        >
-          <Text style={styles.playText}>▶</Text>
-        </Pressable>
-      )}
     </View>
   );
 }
@@ -61,12 +48,4 @@ const styles = StyleSheet.create({
   roman: { fontSize: 12, fontFamily: fonts.regular, color: colors.textSecondary },
   gloss: { fontSize: 13, fontFamily: fonts.regular, color: colors.textSecondary },
   recall: { fontSize: 12, fontFamily: fonts.medium, color: colors.textSecondary, minWidth: 36, textAlign: 'right' },
-  play: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.pill,
-  },
-  playText: { fontSize: 14, color: colors.bubbleSentTop },
 });

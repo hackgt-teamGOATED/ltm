@@ -10,6 +10,8 @@ import {
   computeView,
   guessOptions,
   isStageUp,
+  learningBucket,
+  learningCount,
   mergeAnalyses,
   newlyMastered,
   showTranslationEvents,
@@ -171,4 +173,17 @@ test('newlyMastered + isStageUp', () => {
   assert.equal(isStageUp('listener', 'reader'), true);
   assert.equal(isStageUp('reader', 'reader'), false);
   assert.equal(isStageUp(undefined, 'reader'), false);
+});
+
+test('learningBucket/learningCount: fading words sit with Learning, once, and are never lost', () => {
+  const words = { mastered: ['m'], learning: ['l1', 'l2'], new: ['n'], fading: ['f'] };
+  assert.deepEqual(learningBucket(words), ['l1', 'l2', 'f'], 'fading follows learning');
+  assert.equal(learningCount({ learning: 2, fading: 1 }), 3);
+  // Every word lands in exactly one of the three lists the UI shows.
+  const shown = [...words.mastered, ...learningBucket(words), ...words.new];
+  assert.equal(shown.length, new Set(shown).size, 'no word appears twice');
+  assert.equal(shown.length, 5, 'no word disappears');
+  // Missing buckets are treated as empty, not undefined.
+  assert.deepEqual(learningBucket({}), []);
+  assert.equal(learningCount({}), 0);
 });

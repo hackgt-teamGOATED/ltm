@@ -1,13 +1,14 @@
 import type { WordStatus } from '@heirloom/learner';
 import { Ionicons } from '@expo/vector-icons';
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../src/api/rest';
 import type { LanguageDetail } from '../../src/api/types';
 import { MiniChart } from '../../src/components/MiniChart';
 import { WordRow } from '../../src/components/WordRow';
+import { learningBucket, learningCount } from '../../src/learning/logic';
 import { STAGE_LABEL } from '../../src/learning/useLanguageView';
 import { LANGUAGE_NAMES } from '../../src/lib/cast';
 import { useMe } from '../../src/store/session';
@@ -44,9 +45,12 @@ export default function LanguageDetailScreen() {
     }
   }, [meId, lang]);
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  // Refetch on focus, not just on mount: coming back from a chat must not show stale counts.
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+    }, [refresh]),
+  );
 
   const points = useMemo(
     () => (detail?.weekly ?? []).map((w) => ({ label: `${w.week}`, value: w.readableShare })),
@@ -55,7 +59,7 @@ export default function LanguageDetailScreen() {
   // Fading words were mastered once, so they belong with Learning rather than in a list of their own.
   const rows = useMemo(() => {
     if (!detail) return [];
-    return tab === 'learning' ? [...(detail.words.learning ?? []), ...(detail.words.fading ?? [])] : (detail.words[tab] ?? []);
+    return tab === 'learning' ? learningBucket(detail.words) : (detail.words[tab] ?? []);
   }, [detail, tab]);
 
   if (!me) return <Redirect href="/" />;
@@ -80,7 +84,7 @@ export default function LanguageDetailScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
         {error && <Text style={styles.error}>Couldn't load {name}: {error}</Text>}
-        {detail === null && !error && <ActivityIndicator style={styles.loading} color={colors.heirloom} />}
+        {detail === null && !error && !refreshing && <ActivityIndicator style={styles.loading} color={colors.heirloom} />}
 
         {detail && (
           <>
@@ -99,10 +103,7 @@ export default function LanguageDetailScreen() {
             <View style={styles.tabs}>
               {TABS.map((t) => {
                 const on = t.key === tab;
-                const n =
-                  t.key === 'learning'
-                    ? (detail.counts.learning ?? 0) + (detail.counts.fading ?? 0)
-                    : (detail.counts[t.key] ?? 0);
+                const n = t.key === 'learning' ? learningCount(detail.counts) : (detail.counts[t.key] ?? 0);
                 return (
                   <Pressable
                     key={t.key}

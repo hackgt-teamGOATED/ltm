@@ -1,10 +1,11 @@
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../src/api/rest';
 import type { LanguageProgress } from '../../src/api/types';
 import { LanguageCard } from '../../src/components/LanguageCard';
+import { learningCount } from '../../src/learning/logic';
 import { useMe } from '../../src/store/session';
 import { colors, fonts } from '../../src/theme/tokens';
 
@@ -30,9 +31,13 @@ export default function Progress() {
     }
   }, [meId]);
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+  // Bottom tabs keep this screen mounted, so a mount-only fetch would show stale counts after
+  // reading messages in a chat. Refetch whenever the tab regains focus.
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+    }, [refresh]),
+  );
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -42,7 +47,7 @@ export default function Progress() {
       >
         <Text style={styles.title}>Progress</Text>
         {error && <Text style={styles.error}>Couldn't load progress: {error}</Text>}
-        {langs === null && !error && <ActivityIndicator style={styles.loading} color={colors.heirloom} />}
+        {langs === null && !error && !refreshing && <ActivityIndicator style={styles.loading} color={colors.heirloom} />}
         {langs?.length === 0 && (
           <Text style={styles.body}>
             Turn Heirloom on in a chat and pick a language. What you read there shows up here.
@@ -55,7 +60,7 @@ export default function Progress() {
             stage={l.stage}
             fadePct={l.fadePct}
             mastered={l.counts.mastered ?? 0}
-            learning={(l.counts.learning ?? 0) + (l.counts.fading ?? 0)}
+            learning={learningCount(l.counts)}
             fresh={l.counts.new ?? 0}
             onPress={() => router.push(`/progress/${l.lang}`)}
           />

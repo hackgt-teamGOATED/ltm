@@ -29,9 +29,9 @@ only when every done-criterion in PLAN.md §11 passed; add one line of notes.
 | 3 Chat core | Victor | 9:30 PM | built | Chat list, conversation, bubbles, composer (text + voice), live updates, voice player. Needs: two-iPhone test |
 | 4 Heirloom layer | Victor + Sarosh | 11:30 PM | built | Chip, settings sheet, tappable transcript + translation, word card, View more, RTL, karaoke. Checked on fixtures (`/dev/heirloom`); needs live data + iPhone |
 | 5 The fade | Victor + Lexi | 12:45 AM | built | Event logging (views ≥2.5 s, taps, guesses, show-translation, hear-it), optimistic queue, 4 stage layouts, gloss dissolve, stage-up card, read-on-your-own. Checked on fixtures; needs live data + iPhone |
-| 6 Progress and practice | Lexi | 1:45 AM | todo | |
+| 6 Progress and practice | Lexi | 1:45 AM | built (partial, D-027) | Progress tab, language detail, Mastered/Learning/New lists, readable-share chart. **Cut:** messages-per-week chart and the practice quiz, so the §11 criterion "a practice session updates the lists" is not met. Needs live data + iPhone |
 | E Evaluation charts (§10) | Lexi | 1:45 AM | todo | |
-| 7 Demo mode and polish | Victor + Sarosh | 2:30 AM | todo | |
+| 7 Demo mode and polish | Victor + Sarosh | 2:30 AM | built | Time-travel slider (long-press the chip 1.5 s, or `?demo=1`), replay read-only. Needs live data + iPhone: 300 ms per step, no events posted while scrubbing |
 | 8 Ship | Everyone | 5:00 AM | todo | |
 
 Cut order if behind: karaoke → messages-per-week chart → practice → Urdu → stage-up animations.
