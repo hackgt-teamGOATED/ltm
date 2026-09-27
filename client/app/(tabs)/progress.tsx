@@ -1,13 +1,14 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../src/api/rest';
 import type { LanguageProgress } from '../../src/api/types';
 import { LanguageCard } from '../../src/components/LanguageCard';
+import { Skeleton } from '../../src/components/Skeleton';
 import { learningCount } from '../../src/learning/logic';
 import { useMe } from '../../src/store/session';
-import { colors, fonts } from '../../src/theme/tokens';
+import { colors, fonts, type } from '../../src/theme/tokens';
 
 /** Progress tab (PLAN.md §7.1, US-7): one card per language Heirloom is on for. */
 export default function Progress() {
@@ -47,11 +48,19 @@ export default function Progress() {
       >
         <Text style={styles.title}>Progress</Text>
         {error && <Text style={styles.error}>Couldn't load progress: {error}</Text>}
-        {langs === null && !error && !refreshing && <ActivityIndicator style={styles.loading} color={colors.heirloom} />}
+        {langs === null && !error && (
+          <>
+            <Skeleton height={196} radius={16} />
+            <Skeleton height={196} radius={16} />
+          </>
+        )}
         {langs?.length === 0 && (
-          <Text style={styles.body}>
-            Turn Heirloom on in a chat and pick a language. What you read there shows up here.
-          </Text>
+          <>
+            <Text style={styles.body}>Turn Heirloom on in a chat and pick a language. What you read there shows up here.</Text>
+            <Pressable onPress={() => router.push('/chats')} accessibilityRole="button" style={({ pressed }) => [styles.action, pressed && { opacity: 0.7 }]}>
+              <Text style={styles.actionText}>Open your chats</Text>
+            </Pressable>
+          </>
         )}
         {langs?.map((l) => (
           <LanguageCard
@@ -72,9 +81,10 @@ export default function Progress() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: 16, paddingBottom: 24, gap: 12 },
-  title: { marginTop: 10, fontSize: 26, fontFamily: fonts.semibold, color: colors.textPrimary },
+  content: { paddingHorizontal: 16, paddingBottom: 24, gap: 16 },
+  title: { marginTop: 12, fontSize: type.display, fontFamily: fonts.semibold, letterSpacing: type.headingSpacing, color: colors.textPrimary },
   body: { fontSize: 15, fontFamily: fonts.regular, color: colors.textSecondary },
   error: { fontSize: 14, fontFamily: fonts.regular, color: colors.danger },
-  loading: { marginTop: 24 },
+  action: { alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 999, backgroundColor: colors.heirloom },
+  actionText: { fontSize: 15, fontFamily: fonts.semibold, color: colors.textOnSent },
 });

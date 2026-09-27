@@ -35,22 +35,14 @@ export function MiniChart({ title, points, marker, height = 130 }: Props) {
         <Text style={styles.empty}>Not enough history yet.</Text>
       ) : (
         <Svg width="100%" height={height} viewBox={`0 0 ${CHART_W} ${height}`}>
-          {[0, 0.5, 1].map((t) => (
-            <Line
-              key={t}
-              x1={CHART_PAD.left}
-              y1={y(t)}
-              x2={CHART_W - CHART_PAD.right}
-              y2={y(t)}
-              stroke={colors.hairline}
-              strokeWidth={1}
-            />
-          ))}
-          {[0, 0.5, 1].map((t) => (
-            <SvgText key={t} x={4} y={y(t) + 4} fontSize={9} fill={colors.textSecondary}>
-              {Math.round(t * 100)}%
-            </SvgText>
-          ))}
+          <Line
+            x1={CHART_PAD.left}
+            y1={y(0)}
+            x2={CHART_W - CHART_PAD.right}
+            y2={y(0)}
+            stroke={colors.hairline}
+            strokeWidth={1}
+          />
           {marker && (
             <Line
               x1={CHART_PAD.left}
@@ -62,13 +54,26 @@ export function MiniChart({ title, points, marker, height = 130 }: Props) {
               strokeDasharray="4 3"
             />
           )}
-          <Path d={path} stroke={colors.heirloom} strokeWidth={2} fill="none" strokeLinejoin="round" />
+          <Path d={path} stroke={colors.heirloom} strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
           {points.map((p, i) => (
-            <Circle key={p.label} cx={x(i)} cy={y(p.value)} r={3} fill={colors.heirloom} />
+            <Circle key={p.label} cx={x(i)} cy={y(p.value)} r={2.5} fill={colors.heirloom} />
           ))}
           {points.map((p, i) => (
-            <SvgText key={p.label} x={x(i)} y={height - 6} fontSize={9} fill={colors.textSecondary} textAnchor="middle">
+            <SvgText key={p.label} x={x(i)} y={height - 4} fontSize={10} fontFamily={fonts.regular} fill={colors.textTertiary} textAnchor="middle">
               {p.label}
+            </SvgText>
+          ))}
+          {[0, points.length - 1].map((i) => (
+            <SvgText
+              key={`end${i}`}
+              x={x(i)}
+              y={y(points[i].value) - 8}
+              fontSize={11}
+              fontFamily={fonts.semibold}
+              fill={colors.heirloomDeep}
+              textAnchor={i === 0 ? 'start' : 'end'}
+            >
+              {Math.round(points[i].value * 100)}%
             </SvgText>
           ))}
         </Svg>
@@ -80,7 +85,7 @@ export function MiniChart({ title, points, marker, height = 130 }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { gap: 4 },
-  title: { fontSize: 14, fontFamily: fonts.semibold, color: colors.textPrimary },
+  title: { fontSize: 15, fontFamily: fonts.semibold, letterSpacing: -0.3, color: colors.textPrimary },
   empty: { fontSize: 13, fontFamily: fonts.regular, color: colors.textSecondary, paddingVertical: 12 },
-  markerLabel: { fontSize: 11, fontFamily: fonts.regular, color: colors.mastered },
+  markerLabel: { fontSize: 12, fontFamily: fonts.regular, color: colors.mastered },
 });

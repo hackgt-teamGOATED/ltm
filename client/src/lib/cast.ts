@@ -18,6 +18,13 @@ export const LANGUAGE_NAMES: Record<string, string> = {
   ur: 'Urdu',
   hi: 'Hindi',
 };
+/** Each language in its own script, for headings. */
+export const NATIVE_NAMES: Record<string, string> = {
+  en: 'English',
+  es: 'Español',
+  ur: 'اردو',
+  hi: 'हिन्दी',
+};
 export const LEARNABLE: Lang[] = ['es', 'ur', 'hi', 'en'];
 
 export const isRtl = (lang: string | null | undefined) => lang === 'ur' || lang === 'ar';

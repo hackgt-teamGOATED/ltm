@@ -2,17 +2,25 @@ import type { WordStatus } from '@heirloom/learner';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../../src/api/rest';
 import type { LanguageDetail } from '../../src/api/types';
 import { MiniChart } from '../../src/components/MiniChart';
+import { scriptStyle } from '../../src/components/MessageBubble';
+import { Skeleton } from '../../src/components/Skeleton';
 import { WordRow } from '../../src/components/WordRow';
 import { learningBucket, learningCount } from '../../src/learning/logic';
 import { STAGE_LABEL } from '../../src/learning/useLanguageView';
-import { LANGUAGE_NAMES } from '../../src/lib/cast';
+import { LANGUAGE_NAMES, NATIVE_NAMES } from '../../src/lib/cast';
 import { useMe } from '../../src/store/session';
-import { colors, fonts, radius } from '../../src/theme/tokens';
+import { colors, fonts, radius, tabular, type } from '../../src/theme/tokens';
+
+const EMPTY: Record<string, string> = {
+  mastered: 'No mastered words yet. Keep reading your chats and they will show up here.',
+  learning: 'Nothing in progress yet. Tap words in a chat to start learning them.',
+  new: 'No new words waiting. Everything you have met is already in progress.',
+};
 
 /** Lists in the order the fade moves through them; "fading" sits with Learning so it's never hidden. */
 const TABS: { key: WordStatus; label: string }[] = [
@@ -76,7 +84,7 @@ export default function LanguageDetailScreen() {
         >
           <Ionicons name="chevron-back" size={28} color={colors.bubbleSentTop} />
         </Pressable>
-        <Text style={styles.title}>{name}</Text>
+        <Text style={[scriptStyle(lang, type.title), styles.title]}>{NATIVE_NAMES[lang] ?? name}</Text>
       </View>
 
       <ScrollView
@@ -84,7 +92,13 @@ export default function LanguageDetailScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
       >
         {error && <Text style={styles.error}>Couldn't load {name}: {error}</Text>}
-        {detail === null && !error && !refreshing && <ActivityIndicator style={styles.loading} color={colors.heirloom} />}
+        {detail === null && !error && (
+          <>
+            <Skeleton height={72} radius={16} />
+            <Skeleton height={130} radius={16} />
+            <Skeleton height={44} radius={22} />
+          </>
+        )}
 
         {detail && (
           <>
@@ -113,7 +127,7 @@ export default function LanguageDetailScreen() {
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={`${t.label}, ${n} words`}
                   >
-                    <Text style={[styles.tabText, on && styles.tabTextOn]}>
+                    <Text style={[styles.tabText, on && styles.tabTextOn, tabular]}>
                       {t.label} {n}
                     </Text>
                   </Pressable>
@@ -122,7 +136,7 @@ export default function LanguageDetailScreen() {
             </View>
 
             {rows.length === 0 ? (
-              <Text style={styles.empty}>Nothing here yet. Keep reading your chats.</Text>
+              <Text style={styles.empty}>{EMPTY[tab]}</Text>
             ) : (
               rows.map((w) => <WordRow key={`${w.status}:${w.lemma}`} word={w} lang={lang} />)
             )}
@@ -136,7 +150,7 @@ export default function LanguageDetailScreen() {
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={[styles.statValue, tabular]}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -145,13 +159,12 @@ function Stat({ value, label }: { value: string; label: string }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   header: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 8, paddingVertical: 8 },
-  title: { fontSize: 20, fontFamily: fonts.semibold, color: colors.textPrimary },
+  title: { fontFamily: fonts.semibold, letterSpacing: type.headingSpacing, color: colors.textPrimary },
   content: { paddingHorizontal: 16, paddingBottom: 32, gap: 16 },
   error: { fontSize: 14, fontFamily: fonts.regular, color: colors.danger },
-  loading: { marginTop: 24 },
   statsRow: { flexDirection: 'row', gap: 10 },
-  stat: { flex: 1, padding: 12, borderRadius: radius.card, backgroundColor: colors.surface, gap: 2 },
-  statValue: { fontSize: 18, fontFamily: fonts.semibold, color: colors.textPrimary },
+  stat: { flex: 1, padding: 12, borderRadius: 12, backgroundColor: colors.surface, gap: 2 },
+  statValue: { fontSize: type.title, fontFamily: fonts.semibold, color: colors.textPrimary },
   statLabel: { fontSize: 12, fontFamily: fonts.regular, color: colors.textSecondary },
   tabs: { flexDirection: 'row', gap: 6 },
   tab: {
