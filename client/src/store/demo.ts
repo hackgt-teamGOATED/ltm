@@ -51,7 +51,14 @@ export const useDemo = create<DemoState>((set, get) => ({
     }
   },
 
-  setWeek: (week) => set({ week }),
+  setWeek: (week) => {
+    // Each week is an independent snapshot of history, so it must not inherit the stage of whichever
+    // week was looked at before. Hysteresis exists to stop a *live* view flickering across the
+    // threshold; carried across a scrub it makes the stage depend on click order — preview week 8,
+    // rewind to week 7, and week 7 would still render as Reader.
+    demoStages.clear();
+    set({ week });
+  },
 
   close: () => {
     setLoggingPaused(false);

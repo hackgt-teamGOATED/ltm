@@ -2,7 +2,7 @@
 // Run: npm test -w client (Node's built-in runner; Node 23+ runs TypeScript directly).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { applyEvents, DAY_MS, type LearningEvent, replay, type Stage, type TokenPlan } from '@heirloom/learner';
+import { applyEvents, DAY_MS, type LearningEvent, type Mastery, replay, type Stage, type TokenPlan } from '@heirloom/learner';
 import type { Message, MessageAnalysis } from '../api/types.ts';
 import {
   annotatableIds,
@@ -237,4 +237,43 @@ test('replay ignores everything after the cut-off', () => {
   const events = [evAt(NOW - 2 * WEEK_MS, 'early'), evAt(NOW - 1, 'late')];
   assert.deepEqual(Object.keys(replay(events, NOW - WEEK_MS, 'es')), ['early']);
   assert.equal(Object.keys(replay(events, NOW, 'es')).length, 2);
+});
+
+test("scrubbing must clear the replay stage memory, or a rewound week inherits the later week's stage", () => {
+  // Two snapshots either side of the Reader threshold (0.30), inside the 0.05 hysteresis band:
+  // week 7 at 0.28 (Listener on its own), week 8 at 0.33 (Reader).
+  const lemmas = Array.from({ length: 100 }, (_, i) => `w${i}`);
+  const masteryOf = (n: number): Mastery =>
+    Object.fromEntries(
+      lemmas.slice(0, n).map((l) => [
+        l,
+        applyEvents({}, [
+          { lemma: l, lang: 'es', type: 'read_unaided', at: NOW - 6 * DAY_MS },
+          { lemma: l, lang: 'es', type: 'guess_correct', at: NOW - 3 * DAY_MS, options: 4 },
+          { lemma: l, lang: 'es', type: 'guess_correct', at: NOW - DAY_MS, options: 4 },
+        ]).mastery[l],
+      ]),
+    );
+  const week7 = masteryOf(28);
+  const week8 = masteryOf(33);
+  const key = 'p:es';
+  const pick = (m: Mastery, stages: Map<string, Stage>) => {
+    const v = computeView(m, lemmas, NOW, key, stages);
+    stages.set(key, v.stage); // what useLanguageView does on every render
+    return v.stage;
+  };
+
+  assert.equal(pick(week7, new Map()), 'listener', 'week 7 on its own is below Reader');
+  assert.equal(pick(week8, new Map()), 'reader', 'week 8 is Reader');
+
+  // The hazard: keeping one map across picks makes the answer depend on click order.
+  const carried = new Map<string, Stage>();
+  pick(week8, carried);
+  assert.equal(pick(week7, carried), 'reader', 'carried hysteresis wrongly holds week 7 at Reader');
+
+  // What store/demo.ts does instead: clear on every setWeek, so each week stands alone.
+  const cleared = new Map<string, Stage>();
+  pick(week8, cleared);
+  cleared.clear();
+  assert.equal(pick(week7, cleared), 'listener', 'clearing restores the honest stage for week 7');
 });
