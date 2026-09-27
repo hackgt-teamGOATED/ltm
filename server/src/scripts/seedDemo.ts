@@ -7,7 +7,6 @@
 // Stop other writers for Arjun (e.g. a phone using the app) while it runs.
 import { type Lang, type LearningEvent, type LemmaState, replay, type TokenLike, wordLists } from '@heirloom/learner';
 import { synthesize, transcribe, translate } from '../ai.js';
-import { env } from '../env.js';
 import { analyzeOne, type MsgRow } from '../learning/analyze.js';
 import { insertEvents, listEvents, saveMastery } from '../learning/progress.js';
 import type { Token } from '../learning/types.js';
