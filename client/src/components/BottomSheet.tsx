@@ -1,10 +1,10 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSheet } from '../store/sheet';
-import { colors } from '../theme/tokens';
+import { colors, radius, shadow } from '../theme/tokens';
 
 const DURATION = 220;
 
@@ -27,7 +27,7 @@ export function BottomSheetHost() {
   useEffect(() => {
     if (isOpen) {
       y.value = height;
-      y.value = withTiming(0, { duration: DURATION });
+      y.value = withSpring(0, { damping: 22, stiffness: 240, mass: 0.9 });
       fade.value = withTiming(1, { duration: DURATION });
     } else {
       fade.value = withTiming(0, { duration: DURATION });
@@ -55,7 +55,7 @@ export function BottomSheetHost() {
       <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close" />
       </Animated.View>
-      <Animated.View style={[styles.sheet, { maxHeight: height * 0.85, paddingBottom: insets.bottom + 12 }, sheetStyle]}>
+      <Animated.View style={[styles.sheet, { maxHeight: height * 0.85, paddingBottom: insets.bottom + 16 }, sheetStyle]}>
         <GestureDetector gesture={drag}>
           <View style={styles.handleArea}>
             <View style={styles.handle} />
@@ -77,12 +77,10 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: colors.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
+    borderTopLeftRadius: radius.sheet,
+    borderTopRightRadius: radius.sheet,
+    ...shadow,
   },
   handleArea: { alignItems: 'center', paddingVertical: 10 },
-  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: colors.hairline },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: '#D4D4D9' },
 });

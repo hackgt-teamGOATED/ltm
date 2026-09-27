@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVoiceRecorder } from '../audio/recorder';
-import { colors, fonts } from '../theme/tokens';
+import { colors, fonts, PRESSED_OPACITY, radius } from '../theme/tokens';
 
 interface Props {
   onSendText: (text: string) => Promise<void>;
@@ -17,6 +17,7 @@ export function Composer({ onSendText, onSendVoice }: Props) {
   const rec = useVoiceRecorder();
   const insets = useSafeAreaInsets();
   const recording = rec.phase === 'recording';
+  const hasText = text.trim().length > 0;
 
   const send = async () => {
     const t = text.trim();
@@ -54,45 +55,42 @@ export function Composer({ onSendText, onSendVoice }: Props) {
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 8) }]}>
       {err && <Text style={styles.error}>{err}</Text>}
       <View style={styles.row}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={recording ? 'Stop and send voice note' : 'Record a voice note'}
-          onPress={toggleRecording}
-          style={[styles.mic, recording && { backgroundColor: colors.danger }]}
-        >
-          {rec.phase === 'starting' || rec.phase === 'stopping' ? (
-            <ActivityIndicator size="small" color={colors.bubbleSentTop} />
-          ) : (
-            <Ionicons name={recording ? 'stop' : 'mic'} size={22} color={recording ? '#fff' : colors.bubbleSentTop} />
-          )}
-        </Pressable>
         {recording ? (
-          <Text style={styles.recording}>● Recording {rec.seconds}s: tap ■ to send</Text>
+          <Text style={styles.recording}>● Recording {rec.seconds}s · tap ■ to send</Text>
         ) : (
           <TextInput
             style={styles.input}
             value={text}
             onChangeText={setText}
             placeholder="Message"
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor={colors.textTertiary}
             onSubmitEditing={send}
             returnKeyType="send"
             submitBehavior="submit"
             multiline={false}
           />
         )}
-        {!recording && (
+        {hasText && !recording ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Send"
             onPress={send}
-            disabled={!text.trim() || sending}
-            style={styles.send}
+            disabled={sending}
+            style={({ pressed }) => [styles.action, styles.sendBtn, pressed && styles.pressed]}
           >
-            {sending ? (
+            {sending ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="arrow-up" size={20} color="#fff" />}
+          </Pressable>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={recording ? 'Stop and send voice note' : 'Record a voice note'}
+            onPress={toggleRecording}
+            style={({ pressed }) => [styles.action, recording && { backgroundColor: colors.danger }, pressed && styles.pressed]}
+          >
+            {rec.phase === 'starting' || rec.phase === 'stopping' || (sending && !hasText) ? (
               <ActivityIndicator size="small" color={colors.bubbleSentTop} />
             ) : (
-              <Ionicons name="send" size={22} color={text.trim() ? colors.bubbleSentTop : colors.hairline} />
+              <Ionicons name={recording ? 'stop' : 'mic'} size={22} color={recording ? '#fff' : colors.bubbleSentTop} />
             )}
           </Pressable>
         )}
@@ -106,22 +104,25 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.hairline,
     backgroundColor: colors.background,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     paddingTop: 8,
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  mic: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   input: {
     flex: 1,
-    minHeight: 38,
-    paddingHorizontal: 14,
-    borderRadius: 19,
-    backgroundColor: colors.surface,
-    fontSize: 16,
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: radius.input,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.background,
+    fontSize: 17,
     fontFamily: fonts.regular,
     color: colors.textPrimary,
   },
-  recording: { flex: 1, color: colors.danger, fontFamily: fonts.medium, fontSize: 15 },
-  send: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  action: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  sendBtn: { backgroundColor: colors.bubbleSentTop },
+  pressed: { opacity: PRESSED_OPACITY },
+  recording: { flex: 1, minHeight: 44, textAlignVertical: 'center', lineHeight: 44, color: colors.danger, fontFamily: fonts.medium, fontSize: 15 },
   error: { color: colors.danger, fontFamily: fonts.regular, fontSize: 13, paddingHorizontal: 8, paddingBottom: 4 },
 });

@@ -2,12 +2,14 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '../../src/components/Avatar';
+import { SkeletonRow } from '../../src/components/Skeleton';
 import { castById, LANGUAGE_NAMES } from '../../src/lib/cast';
 import { preview, shortTime } from '../../src/lib/format';
 import { useMe } from '../../src/store/session';
 import { subscribeThreadList, useThreads } from '../../src/store/threads';
-import { colors, fonts } from '../../src/theme/tokens';
+import { colors, fonts, PRESSED_OPACITY, type } from '../../src/theme/tokens';
 
 export default function Chats() {
   const me = useMe();
@@ -75,27 +77,47 @@ export default function Chats() {
           return (
             <Pressable
               accessibilityRole="button"
-              style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.surface }]}
+              style={({ pressed }) => [styles.row, pressed && { opacity: PRESSED_OPACITY }]}
               onPress={() => router.push(`/chat/${t.id}`)}
             >
               <Avatar id={other.id} name={other.displayName} size={56} ring={Boolean(s?.learningEnabled)} />
-              <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={styles.rowBody}>
                 <View style={styles.nameRow}>
-                  <Text style={styles.name}>{other.displayName}</Text>
+                  <Text style={styles.name} numberOfLines={1}>
+                    {other.displayName}
+                  </Text>
                   {s?.learningEnabled && s.learningLang && (
                     <Text style={styles.chip}>✦ {LANGUAGE_NAMES[s.learningLang]}</Text>
                   )}
+                  <View style={{ flex: 1 }} />
+                  {last && <Text style={styles.time}>{shortTime(last.createdAt)}</Text>}
                 </View>
-                <Text style={styles.preview} numberOfLines={1}>
-                  {preview(last, me.language, me.id)}
-                  {last ? ` · ${shortTime(last.createdAt)}` : ''}
-                </Text>
+                <View style={styles.previewRow}>
+                  {last?.kind === 'voice' && <Ionicons name="mic" size={14} color={colors.textSecondary} />}
+                  <Text style={styles.preview} numberOfLines={1}>
+                    {preview(last, me.language, me.id)}
+                  </Text>
+                </View>
               </View>
             </Pressable>
           );
         }}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
-          !refreshing ? <Text style={styles.empty}>No chats yet. Is the server running and seeded?</Text> : null
+          refreshing ? (
+            <>
+              <SkeletonRow />
+              <SkeletonRow />
+              <SkeletonRow />
+            </>
+          ) : (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.empty}>No conversations yet.</Text>
+              <Pressable onPress={() => router.push('/?pick=1')} accessibilityRole="button" style={({ pressed }) => [styles.emptyBtn, pressed && { opacity: PRESSED_OPACITY }]}>
+                <Text style={styles.emptyBtnText}>Switch person</Text>
+              </Pressable>
+            </View>
+          )
         }
       />
     </SafeAreaView>
@@ -104,13 +126,20 @@ export default function Chats() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
-  title: { fontSize: 26, fontFamily: fonts.semibold, color: colors.textPrimary },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12 },
+  title: { fontSize: type.display, fontFamily: fonts.semibold, letterSpacing: type.headingSpacing, color: colors.textPrimary },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12 },
+  rowBody: { flex: 1, minWidth: 0, gap: 2 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  name: { fontSize: 16, fontFamily: fonts.medium, color: colors.textPrimary },
-  chip: { fontSize: 12, fontFamily: fonts.medium, color: colors.heirloom },
-  preview: { marginTop: 2, fontSize: 14, fontFamily: fonts.regular, color: colors.textSecondary },
-  empty: { padding: 24, textAlign: 'center', color: colors.textSecondary, fontFamily: fonts.regular },
+  name: { flexShrink: 1, fontSize: type.body, fontFamily: fonts.semibold, letterSpacing: type.headingSpacing, color: colors.textPrimary },
+  chip: { fontSize: type.caption, fontFamily: fonts.semibold, color: colors.heirloomDeep },
+  time: { fontSize: type.meta, fontFamily: fonts.regular, color: colors.textTertiary },
+  previewRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  preview: { flex: 1, fontSize: type.secondary, fontFamily: fonts.regular, color: colors.textSecondary },
+  separator: { height: StyleSheet.hairlineWidth, marginLeft: 84, backgroundColor: colors.hairline },
+  emptyWrap: { alignItems: 'center', gap: 16, padding: 32 },
+  empty: { textAlign: 'center', fontSize: type.secondary, color: colors.textSecondary, fontFamily: fonts.regular },
+  emptyBtn: { paddingHorizontal: 16, paddingVertical: 12, borderRadius: 999, backgroundColor: colors.heirloom },
+  emptyBtnText: { fontSize: type.secondary, fontFamily: fonts.semibold, color: colors.textOnSent },
   error: { paddingHorizontal: 16, color: colors.danger, fontFamily: fonts.regular },
 });

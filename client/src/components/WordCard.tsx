@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { MessageAnalysis } from '../api/types';
 import { play, usePlayer } from '../audio/player';
 import { useSheet } from '../store/sheet';
-import { colors, fonts, radius } from '../theme/tokens';
+import { colors, fonts, radius, shadow } from '../theme/tokens';
 import { scriptStyle } from './MessageBubble';
 import { TranslationText } from './TranslationText';
 import { WordNotesSheet } from './WordNotesSheet';
@@ -173,28 +173,29 @@ function WordDetails({
 
 const styles = StyleSheet.create({
   card: {
-    marginTop: 6,
-    padding: 12,
+    marginTop: 8,
+    padding: 16,
     borderRadius: radius.card,
-    borderWidth: 1.5,
-    borderColor: colors.heirloom,
+    borderWidth: 1,
+    borderColor: '#EBD8B0',
     backgroundColor: colors.background,
+    ...shadow,
   },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 4 },
   word: { color: colors.textPrimary },
-  roman: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 14 },
-  meaning: { marginTop: 2, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15 },
+  roman: { color: colors.textSecondary, fontFamily: fonts.regular, fontSize: 15 },
+  meaning: { marginTop: 4, color: colors.textPrimary, fontFamily: fonts.semibold, fontSize: 15 },
   pos: { color: colors.textSecondary, fontFamily: fonts.regular },
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  section: { marginTop: 10 },
-  divider: { paddingTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
+  section: { marginTop: 12 },
+  divider: { paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.hairline },
   grammar: { marginTop: 6, fontSize: 13, fontFamily: fonts.regular, color: colors.textSecondary },
-  label: { fontSize: 12, fontFamily: fonts.semibold, color: colors.heirloom, textTransform: 'uppercase', letterSpacing: 0.5 },
+  label: { fontSize: 12, fontFamily: fonts.medium, color: colors.heirloomDeep },
   body: { marginTop: 2, fontSize: 14, fontFamily: fonts.regular, color: colors.textPrimary },
   culture: { marginTop: 6, fontSize: 13, fontFamily: fonts.regular, color: colors.textSecondary, fontStyle: 'italic' },
   viewMore: { marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 2, alignSelf: 'flex-start', minHeight: 24 },
   viewMoreText: { color: colors.heirloom, fontFamily: fonts.semibold, fontSize: 14 },
-  check: { marginTop: 8, fontSize: 11, fontFamily: fonts.regular, color: colors.textSecondary },
+  check: { marginTop: 12, fontSize: 12, fontFamily: fonts.regular, color: colors.textSecondary },
   options: { marginTop: 10, gap: 8 },
   option: {
     minHeight: 44,

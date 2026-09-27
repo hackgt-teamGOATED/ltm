@@ -12,7 +12,7 @@ export interface GroupPos {
 }
 
 /** Script-aware text style: Nastaliq for Urdu (tall line height, right-to-left), Devanagari for Hindi. */
-export function scriptStyle(lang: string | null | undefined, size = 16): TextStyle {
+export function scriptStyle(lang: string | null | undefined, size = 17): TextStyle {
   if (lang === 'ur') {
     return { fontFamily: fonts.urdu, fontSize: size, lineHeight: size * 2.0, writingDirection: 'rtl', textAlign: 'right' };
   }
@@ -33,7 +33,7 @@ interface BubbleProps {
   onLongPress?: () => void;
 }
 
-/** Bubble shell: gradient when sent, grey when received, 18px radius with a 4px tail corner on the group's last bubble. */
+/** Bubble shell: gradient when sent, grey when received, 20px radius with a 4px tail corner on the group's last bubble. */
 export function Bubble({ mine, pos, children, heirloom, footer, onPress, onLongPress }: BubbleProps) {
   // The sender's side is squared off where bubbles join and at the tail (bottom of the group's last bubble).
   const corners = mine
