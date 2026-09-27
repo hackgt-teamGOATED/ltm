@@ -3,7 +3,7 @@
 import type { Mastery, Stage } from '@heirloom/learner';
 import { useMemo } from 'react';
 import type { Message, MessageAnalysis } from '../api/types';
-import { previousStages, stageKey, useLearner } from '../store/learner';
+import { masteryKey, previousStages, stageKey, useLearner } from '../store/learner';
 import { computeView, recentLemmas } from './logic';
 
 const EMPTY: Mastery = {};
@@ -23,7 +23,7 @@ export function useLanguageView(
   meId: string,
   now: number,
 ): LanguageView {
-  const mastery = useLearner((s) => (lang ? s.mastery[lang] : undefined)) ?? EMPTY;
+  const mastery = useLearner((s) => (lang ? s.mastery[masteryKey(meId, lang)] : undefined)) ?? EMPTY;
   const view = useMemo(() => {
     if (!lang) return { stage: 'listener' as Stage, readableShare: 0, fadePct: 0, mastery };
     const key = stageKey(meId, lang);

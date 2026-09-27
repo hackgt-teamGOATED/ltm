@@ -2,9 +2,21 @@
 // Run: npm test -w client (Node's built-in runner; Node 23+ runs TypeScript directly).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { applyEvents, DAY_MS, type LearningEvent, type Stage } from '@heirloom/learner';
+import { applyEvents, DAY_MS, type LearningEvent, type Stage, type TokenPlan } from '@heirloom/learner';
 import type { Message, MessageAnalysis } from '../api/types.ts';
-import { annotatableIds, BACKFILL_COUNT, computeView, mergeAnalyses, voiceSource } from './logic.ts';
+import {
+  annotatableIds,
+  BACKFILL_COUNT,
+  computeView,
+  guessOptions,
+  isStageUp,
+  mergeAnalyses,
+  newlyMastered,
+  showTranslationEvents,
+  tapEventType,
+  viewEvents,
+  voiceSource,
+} from './logic.ts';
 
 const NOW = Date.UTC(2026, 8, 26, 18);
 const analysis = (messageId: string, lemma = 'x'): MessageAnalysis => ({
@@ -91,4 +103,72 @@ test('annotatableIds: backfill window, fresh messages, never empty or own messag
   assert.ok(ids.has(`m${BACKFILL_COUNT + 4}`));
   assert.ok(ids.has('fresh'));
   for (const x of ['empty', 'mine', 'fr']) assert.ok(!ids.has(x), x);
+});
+
+// ---- Phase 5 ----
+
+const tok = (i: number, lemma: string, extra: Partial<MessageAnalysis['tokens'][number]> = {}) => ({
+  i,
+  surface: lemma,
+  pre: i ? ' ' : '',
+  lemma,
+  gloss: `g-${lemma}`,
+  ...extra,
+});
+const planOf = (flags: Partial<TokenPlan>[]): TokenPlan[] =>
+  flags.map((f, i) => ({ i, status: 'learning', hint: false, partialHint: false, romanization: false, challenge: false, recall: 0.5, ...f }));
+const CTX = { messageId: 'm1', threadId: 't1', lang: 'es' as const, at: NOW };
+
+test('viewEvents: hinted → exposure, unhinted → read_unaided, challenges and tapped words skipped, one per lemma', () => {
+  const tokens = [tok(0, 'hola'), tok(1, 'mijo'), tok(2, 'frío'), tok(3, 'hola'), tok(4, '!', { isPunct: true }), tok(5, 'sopa')];
+  const plan = planOf([{ hint: true }, {}, { challenge: true }, { hint: true }, {}, {}]);
+  const ev = viewEvents(tokens, plan, new Set(['sopa']), CTX);
+  assert.deepEqual(
+    ev.map((e) => `${e.lemma}:${e.type}`),
+    ['hola:exposure_hinted', 'mijo:read_unaided'],
+  );
+  assert.ok(ev.every((e) => e.messageId === 'm1' && e.threadId === 't1' && e.at === NOW));
+});
+
+test('viewEvents: romanizationShown only for words that have romanization', () => {
+  const ev = viewEvents([tok(0, 'آج', { romanization: 'aaj' }), tok(1, 'x')], planOf([{ romanization: false }, {}]), new Set(), {
+    ...CTX,
+    lang: 'ur',
+  });
+  assert.equal(ev[0].romanizationShown, false);
+  assert.equal('romanizationShown' in ev[1], false);
+});
+
+test('tapEventType: curiosity on a mastered word is free', () => {
+  assert.equal(tapEventType('mastered'), 'tap_explore');
+  for (const s of ['new', 'learning', 'fading'] as const) assert.equal(tapEventType(s), 'tap_reveal');
+});
+
+test('showTranslationEvents: only the words that were shown without help', () => {
+  const tokens = [tok(0, 'a'), tok(1, 'b'), tok(2, 'c'), tok(3, 'a')];
+  const ev = showTranslationEvents(tokens, planOf([{}, { hint: true }, { challenge: true }, {}]), CTX);
+  assert.deepEqual(
+    ev.map((e) => `${e.lemma}:${e.type}`),
+    ['a:show_translation'],
+  );
+});
+
+test('guessOptions: 4 distinct options including the answer, stable per seed', () => {
+  const o = guessOptions('cold', ['hot', 'cold', 'Cold', 'rain', 'sun', 'snow', ''], 'frío');
+  assert.equal(o.length, 4);
+  assert.ok(o.includes('cold'));
+  assert.equal(new Set(o.map((x) => x.toLowerCase())).size, 4);
+  assert.deepEqual(o, guessOptions('cold', ['hot', 'cold', 'Cold', 'rain', 'sun', 'snow', ''], 'frío'));
+});
+
+test('newlyMastered + isStageUp', () => {
+  const ev: LearningEvent[] = [{ lemma: 'a', lang: 'es', type: 'read_unaided', at: NOW - 6 * DAY_MS }];
+  for (const d of [5, 3, 0]) ev.push({ lemma: 'a', lang: 'es', type: 'guess_correct', at: NOW - d * DAY_MS, options: 4 });
+  const before = applyEvents({}, ev.slice(0, 3)).mastery;
+  const after = applyEvents({}, ev).mastery;
+  assert.deepEqual(newlyMastered(before, after, ['a', 'a', 'b'], NOW), ['a']);
+  assert.deepEqual(newlyMastered(after, after, ['a'], NOW), []);
+  assert.equal(isStageUp('listener', 'reader'), true);
+  assert.equal(isStageUp('reader', 'reader'), false);
+  assert.equal(isStageUp(undefined, 'reader'), false);
 });

@@ -22,7 +22,7 @@ only when every done-criterion in PLAN.md §11 passed; add one line of notes.
 | 2b Seed script | Sarosh | 10:30 PM | built | Script + simulator + tests (arc Listener → Reader, D-024). Needs a live run: Supabase key + `002_learning.sql` |
 | 3 Chat core | Victor | 9:30 PM | built | Chat list, conversation, bubbles, composer (text + voice), live updates, voice player. Needs: two-iPhone test |
 | 4 Heirloom layer | Victor + Sarosh | 11:30 PM | built | Chip, settings sheet, tappable transcript + translation, word card, View more, RTL, karaoke. Checked on fixtures (`/dev/heirloom`); needs live data + iPhone |
-| 5 The fade | Victor + Lexi | 12:45 AM | todo | |
+| 5 The fade | Victor + Lexi | 12:45 AM | built | Event logging (views ≥2.5 s, taps, guesses, show-translation, hear-it), optimistic queue, 4 stage layouts, gloss dissolve, stage-up card, read-on-your-own. Checked on fixtures; needs live data + iPhone |
 | 6 Progress and practice | Lexi | 1:45 AM | todo | |
 | E Evaluation charts (§10) | Lexi | 1:45 AM | todo | |
 | 7 Demo mode and polish | Victor + Sarosh | 2:30 AM | todo | |

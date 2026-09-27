@@ -12,17 +12,18 @@ import { useSelection } from '../../src/store/selection';
 import { colors, fonts } from '../../src/theme/tokens';
 
 const ENABLED = process.env.EXPO_PUBLIC_DEV_FIXTURES === '1';
+const POOL = ['hot', 'rain', 'hunger', 'love', 'today', 'cold', 'soup'];
 
 export default function HeirloomFixtures() {
-  const params = useLocalSearchParams<{ select?: string; stage?: Stage; msg?: string }>();
+  const params = useLocalSearchParams<{ select?: string; stage?: Stage; msg?: string; guess?: string }>();
   const select = useSelection((s) => s.select);
   const now = useMemo(() => Date.now(), []);
   const mastery = useMemo(() => fixtureMastery(now), [now]);
   const stage = params.stage ?? 'listener';
 
   useEffect(() => {
-    if (params.select !== undefined) select({ messageId: params.msg ?? 'fx-es', tokenIndex: Number(params.select) });
-  }, [params.select, params.msg, select]);
+    if (params.select !== undefined) select({ messageId: params.msg ?? 'fx-es', tokenIndex: Number(params.select), guess: params.guess === '1' });
+  }, [params.select, params.msg, params.guess, select]);
 
   if (!ENABLED) return <Redirect href="/" />;
   const view = { stage, readableShare: 0.12, fadePct: 12, mastery };
@@ -31,7 +32,7 @@ export default function HeirloomFixtures() {
       <ScrollView contentContainerStyle={{ paddingVertical: 12 }}>
         <Text style={styles.h}>Heirloom fixtures ({stage})</Text>
         <HeirloomChip enabled lang="es" stage={stage} fadePct={12} onPress={() => {}} />
-        <HeirloomMessage m={esMessage} pos={{ first: true, last: true }} analysis={esAnalysis} view={view} viewerLang="en" profileId="fx" now={now} analyzable />
+        <HeirloomMessage m={esMessage} pos={{ first: true, last: true }} analysis={esAnalysis} view={view} viewerLang="en" profileId="fx" now={now} analyzable guessPool={POOL} readOnly />
         <HeirloomMessage
           m={urMessage}
           pos={{ first: true, last: true }}
@@ -41,6 +42,8 @@ export default function HeirloomFixtures() {
           profileId="fx"
           now={now}
           analyzable
+          guessPool={POOL}
+          readOnly
         />
       </ScrollView>
     </SafeAreaView>
