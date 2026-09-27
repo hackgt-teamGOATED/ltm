@@ -7,6 +7,9 @@ export const CAST = [
   { slug: 'arjun', id: id('1'), name: 'Arjun', language: 'en', blurb: 'Learning Spanish and Urdu' },
   { slug: 'abuela', id: id('3'), name: 'Abuela', language: 'es', blurb: 'Habla español' },
   { slug: 'zara', id: id('5'), name: 'Zara', language: 'ur', blurb: 'اردو بولتی ہیں' },
+  // Team accounts for live testing (supabase/004_team_accounts.sql).
+  { slug: 'sarosh', id: id('6'), name: 'Sarosh', language: 'ur', blurb: 'اردو بولتے ہیں' },
+  { slug: 'victor', id: id('7'), name: 'Victor', language: 'en', blurb: 'Learning Urdu' },
 ] as const;
 
 export const castBySlug = (slug: string | null | undefined) => CAST.find((c) => c.slug === slug?.toLowerCase());
