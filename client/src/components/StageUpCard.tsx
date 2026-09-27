@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { LANGUAGE_NAMES } from '../lib/cast';
-import { colors, fonts, radius } from '../theme/tokens';
+import { colors, fonts, radius, shadow } from '../theme/tokens';
 
 const COPY: Record<Exclude<Stage, 'listener'>, (lang: string) => { title: string; body: string }> = {
   reader: (l) => ({ title: `You're a Reader in ${l}`, body: 'Original first now. The translation is one tap away.' }),
@@ -36,15 +36,13 @@ export function StageUpCard({ stage, lang, onDone }: { stage: Stage; lang: strin
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 12, right: 12, top: 64, zIndex: 10 },
   card: {
-    padding: 14,
+    padding: 16,
     borderRadius: radius.card,
     backgroundColor: colors.heirloomTint,
-    borderWidth: 1.5,
-    borderColor: colors.heirloom,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EBD8B0',
+    ...shadow,
   },
-  title: { fontFamily: fonts.semibold, fontSize: 16, color: colors.textPrimary },
-  body: { marginTop: 2, fontFamily: fonts.regular, fontSize: 14, color: colors.textSecondary },
+  title: { fontFamily: fonts.semibold, fontSize: 17, letterSpacing: -0.3, color: colors.heirloomDeep },
+  body: { marginTop: 4, fontFamily: fonts.regular, fontSize: 15, color: colors.textSecondary },
 });
