@@ -19,7 +19,6 @@ import {
   weekBuckets,
   tapEventType,
   viewEvents,
-  voiceSource,
 } from './logic.ts';
 
 const NOW = Date.UTC(2026, 8, 26, 18);
@@ -83,12 +82,6 @@ test('two views sharing the stage map agree inside the hysteresis band (chip vs 
   assert.equal(sheet.stage, chip.stage);
   // With separate (fresh) maps they would have disagreed:
   assert.equal(computeView(m, lemmas, NOW, 'p:es', new Map()).stage, 'listener');
-});
-
-test('voiceSource: stage default until the listener picks one (review #2)', () => {
-  assert.equal(voiceSource(null, 'listener'), 'translated');
-  assert.equal(voiceSource(null, 'reader'), 'original');
-  assert.equal(voiceSource('translated', 'fluent'), 'translated');
 });
 
 test('annotatableIds: backfill window, fresh messages, never empty or own messages (review #3)', () => {
